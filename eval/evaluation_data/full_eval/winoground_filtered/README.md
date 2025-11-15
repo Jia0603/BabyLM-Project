@@ -1,0 +1,2 @@
+- The Winoground text data is not to be trained on (as per the license found in the [HuggingFace Repo](https://huggingface.co/datasets/facebook/winoground))
+- The images can be dowloaded from the [HuggingFace Repo](https://huggingface.co/datasets/facebook/winoground) after accepting the license for usage of the data.
