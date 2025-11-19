@@ -229,7 +229,7 @@ Checkpoints are saved in `models/GPT2-Small-Distilled/` and are **not** automati
 sinfo | grep gpu
 
 # Cancel job
-scancel 1722379
+scancel <job_id>
 
 # Cancel all jobs
 scancel -u username
