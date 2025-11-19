@@ -74,11 +74,6 @@ python 7_train_teachers.py --config gpt2-large-babylm.yaml --use_lora
 python 7_train_teachers.py --config gpt2-large-babylm.yaml --use_qlora
 ```
 
-Enable LoRA/QLoRA in `gpt2-large-babylm.yaml`:
-```yaml
-model:
-  use_lora: true      # or use_qlora: true for QLoRA
-```
 
 #### Step 3: Train Baseline Model (for comparison)
 
@@ -201,6 +196,16 @@ We use GPT-2's original tokenizer (50,257 vocabulary) for full compatibility wit
 - ✅ No vocabulary mapping needed
 - ✅ Stable training
 
+### Checkpointing Strategy
+
+The student model training (`8_train_student.py`) uses a data-volume based checkpointing strategy instead of epoch-based saving. This allows for analyzing model performance at specific training milestones:
+
+- **1M - 10M words**: Checkpoint every 1M words
+- **20M - 100M words**: Checkpoint every 10M words
+- **200M - 1000M words**: Checkpoint every 100M words
+
+Checkpoints are saved in `models/GPT2-Small-Distilled/` and are **not** automatically deleted, so ensure sufficient disk space is available.
+
 ## 📈 Training Details
 
 ### Teacher Model
@@ -216,6 +221,7 @@ We use GPT-2's original tokenizer (50,257 vocabulary) for full compatibility wit
 ### Distilled Student
 - **Architecture**: GPT-2 Small (random initialization)
 - **Training**: Knowledge distillation from teacher
+- **Checkpointing**: Saved at specific word-count milestones (1M, 2M... 10M, 20M... 100M, etc.)
 - **Output**: `models/GPT2-Small-Distilled/`
 
 ## 🖥️ System Requirements
