@@ -118,12 +118,9 @@ BabyLM/
 │   ├── GPT2-Small-BabyLM-CE/      # Baseline student
 │   └── GPT2-Small-Distilled/      # Distilled student
 ├── combine_babylm.py              # Data preparation
-├── 6_tokenizer.py                # Custom tokenizer training (optional)
 ├── 7_train_teachers.py            # Teacher fine-tuning (full/LoRA/QLoRA)
 ├── train_gpt2_small_ce.py        # Baseline student training
 ├── 8_train_student.py             # Student distillation
-├── evaluate_student.py            # Model evaluation
-├── evaluate_teacher.py            # Teacher model evaluation
 ├── custom_dataset.py              # PyTorch dataset class
 ├── gpt2-large-babylm.yaml        # Training configuration
 └── README.md
@@ -251,12 +248,9 @@ source ~/BabyLM/babylm/bin/activate
 ## 📝 Key Files
 
 - `combine_babylm.py`: Merges and splits BabyLM data files while maintaining sentence coherence
-- `6_tokenizer.py`: Trains a custom BPE tokenizer (optional, GPT-2 tokenizer is recommended)
 - `7_train_teachers.py`: Teacher fine-tuning (supports full, LoRA, and QLoRA)
 - `train_gpt2_small_ce.py`: Baseline student training (cross-entropy only)
 - `8_train_student.py`: Student distillation training
-- `evaluate_student.py`: Compares baseline vs. distilled models
-- `evaluate_teacher.py`: Evaluates teacher model performance
 - `custom_dataset.py`: PyTorch dataset for text data with caching support
 
 ## ⚠️ Notes
