@@ -115,6 +115,7 @@ class WordMilestoneCB(TrainerCallback):
         # Milestones in millions of words
         # 1M to 10M (step 1M), then 20M to 100M (step 10M), then 200M to 1000M (step 100M)
         ms = list(range(1, 11)) + [i * 10 for i in range(2, 11)] + [i * 100 for i in range(2, 11)]
+        self.milestones_m = ms  # Store milestone values in millions
         self.milestone_toks = [int(m * 1e6 * self.tok_per_word) for m in ms]
         self.next_milestone_idx = 0
 
@@ -127,9 +128,23 @@ class WordMilestoneCB(TrainerCallback):
         if self.next_milestone_idx < len(self.milestone_toks):
             next_milestone = self.milestone_toks[self.next_milestone_idx]
             if self.toks >= next_milestone:
-                control.should_save = True
-                print(f"Milestone reached: {next_milestone/self.tok_per_word/1e6:.1f}M words ({self.toks} tokens). Saving checkpoint...")
+                # Get trainer and model from kwargs
+                model = kwargs.get('model')
+                tokenizer = kwargs.get('tokenizer')
+                
+                # Create custom checkpoint name
+                milestone_m = self.milestones_m[self.next_milestone_idx]
+                checkpoint_name = f"checkpoint_{milestone_m}M"
+                checkpoint_path = Path(args.output_dir) / checkpoint_name
+                
+                # Save model manually
+                print(f"Milestone reached: {milestone_m}M words ({self.toks} tokens). Saving checkpoint to {checkpoint_name}...")
+                model.save_pretrained(checkpoint_path)
+                if tokenizer is not None:
+                    tokenizer.save_pretrained(checkpoint_path)
+                
                 self.next_milestone_idx += 1
+                # Don't set control.should_save since we're saving manually
 
 
 class DistillationTrainer(Trainer):
