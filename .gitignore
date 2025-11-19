@@ -25,3 +25,7 @@ self_tokenizer_models/
 *.zip
 *.tar
 *.gz
+
+# Report
+weekly report/
+original parts/
