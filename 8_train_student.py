@@ -68,6 +68,7 @@ eval_dataset = Subset(val_dataset, eval_indices)
 tokenizer.model_max_length = SEQ_LENGTH
 
 # Student model: GPT-2 Small architecture, random initialization
+
 student_config = GPT2Config(
     vocab_size=tokenizer.vocab_size,
     n_positions=2*SEQ_LENGTH,
