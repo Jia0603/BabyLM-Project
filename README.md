@@ -65,7 +65,13 @@ python 7_train_teachers.py --config gpt2-large-babylm.yaml
 **Option B: LoRA/QLoRA Fine-tuning** (<8GB GPU memory)
 
 ```bash
-python 7_train_teachers_lora.py --config gpt2-large-babylm.yaml
+python 7_train_teachers.py --config gpt2-large-babylm.yaml --use_lora
+```
+
+**Option C: QLoRA Fine-tuning** (<4GB GPU memory)
+
+```bash
+python 7_train_teachers.py --config gpt2-large-babylm.yaml --use_qlora
 ```
 
 Enable LoRA/QLoRA in `gpt2-large-babylm.yaml`:
@@ -118,8 +124,7 @@ BabyLM/
 │   └── GPT2-Small-Distilled/      # Distilled student
 ├── combine_babylm.py              # Data preparation
 ├── 6_tokenizer.py                # Custom tokenizer training (optional)
-├── 7_train_teachers.py            # Teacher fine-tuning (full)
-├── 7_train_teachers_lora.py      # Teacher fine-tuning (LoRA/QLoRA)
+├── 7_train_teachers.py            # Teacher fine-tuning (full/LoRA/QLoRA)
 ├── train_gpt2_small_ce.py        # Baseline student training
 ├── 8_train_student.py             # Student distillation
 ├── evaluate_student.py            # Model evaluation
@@ -241,8 +246,7 @@ source ~/BabyLM/babylm/bin/activate
 
 - `combine_babylm.py`: Merges and splits BabyLM data files while maintaining sentence coherence
 - `6_tokenizer.py`: Trains a custom BPE tokenizer (optional, GPT-2 tokenizer is recommended)
-- `7_train_teachers.py`: Full fine-tuning of teacher model
-- `7_train_teachers_lora.py`: LoRA/QLoRA fine-tuning of teacher model
+- `7_train_teachers.py`: Teacher fine-tuning (supports full, LoRA, and QLoRA)
 - `train_gpt2_small_ce.py`: Baseline student training (cross-entropy only)
 - `8_train_student.py`: Student distillation training
 - `evaluate_student.py`: Compares baseline vs. distilled models

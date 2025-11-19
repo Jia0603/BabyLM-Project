@@ -1,4 +1,3 @@
-import os
 import torch
 from torch.utils.data import Dataset
 from random import randrange
@@ -11,23 +10,12 @@ class CustomDataset(Dataset):
         self.tokenizer = tokenizer
         self.random_chunk = random_chunk
         
-        # Create cache filename based on tokenizer and data
-        tokenizer_name = tokenizer.__class__.__name__
-        data_name = Path(data_path).stem  # Gets filename without extension
-        cache_dir = Path("cache")
-        cache_dir.mkdir(exist_ok=True)
-        tokenized_file = cache_dir / f"tokenized_{data_name}_{tokenizer_name}_{tokenizer.vocab_size}.pt"
-        chck = False
-        if chck:
-            print(f"Loading cached data from {tokenized_file}")
-            self.data = torch.load(tokenized_file)
-        else:
-            print(f"Tokenizing data from {data_path}")
-            text = Path(data_path).read_text(encoding="utf-8")
-            encoded = self.tokenizer.encode(text)
-            print(f"Encoded length: {len(encoded)}")
-            self.data = torch.tensor(encoded)
-            # Save tokenized data
+        # Tokenize data
+        print(f"Tokenizing data from {data_path}")
+        text = Path(data_path).read_text(encoding="utf-8")
+        encoded = self.tokenizer.encode(text)
+        print(f"Encoded length: {len(encoded)}")
+        self.data = torch.tensor(encoded)
             
     
     def __len__(self):

@@ -1,6 +1,5 @@
 from transformers import (
     GPT2TokenizerFast, GPT2LMHeadModel, GPT2Config,
-    LlamaForCausalLM, LlamaConfig, GPTJForCausalLM,
     Trainer, TrainingArguments,
     DataCollatorForLanguageModeling
 )
@@ -65,8 +64,6 @@ val_dataset = CustomDataset(
 eval_indices = sample(range(len(val_dataset)), min(EVAL_SAMPLES, len(val_dataset)))
 eval_dataset = Subset(val_dataset, eval_indices)
 
-tokenizer.model_max_length = SEQ_LENGTH
-
 # Student model: GPT-2 Small architecture, random initialization
 
 student_config = GPT2Config(
@@ -90,10 +87,6 @@ teachers = [teacher]
 data_collator = DataCollatorForLanguageModeling(
     tokenizer=tokenizer, mlm=False,
 )
-
-
-print(f'model num parameters: student = {student.num_parameters()}')
-print(f'model num parameters: teacher = {teacher.num_parameters()}')
 
 
 
