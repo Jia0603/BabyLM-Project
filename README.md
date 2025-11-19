@@ -91,13 +91,7 @@ python 8_train_student.py
 
 This trains a randomly initialized GPT-2 Small using knowledge distillation from the teacher.
 
-#### Step 5: Evaluate Models
 
-```bash
-python evaluate_student.py
-```
-
-This compares the baseline and distilled student models on the validation set.
 
 ## 📁 Project Structure
 
@@ -265,15 +259,7 @@ source ~/BabyLM/babylm/bin/activate
 
 5. **Data Coherence**: The `combine_babylm.py` script maintains sentence order within each file to preserve dialogue and text coherence.
 
-## 📊 Evaluation
 
-The evaluation script (`evaluate_student.py`) compares:
-- **Baseline**: Randomly initialized GPT-2 Small trained with cross-entropy
-- **Distilled**: Randomly initialized GPT-2 Small trained with knowledge distillation
-
-Metrics reported:
-- Cross-entropy loss
-- Perplexity (PPL)
 
 ## 📅 Implementation Status (Nov 11-18, 2024)
 
@@ -284,7 +270,6 @@ This is our initial implementation completed during Week 1 (November 11-18, 2024
 - Teacher model fine-tuning (full and LoRA/QLoRA)
 - Student model training with distillation
 - Baseline comparison model
-- Evaluation framework
 - Data preparation with coherence preservation
 
 ### 📝 Notes
