@@ -102,6 +102,36 @@ class DistillationTrainingArguments(TrainingArguments):
         self.temperature = temperature
 
 
+from transformers import TrainerCallback
+
+class WordMilestoneCB(TrainerCallback):
+    def __init__(self, seq_len, grad_acc, bsz, tok_per_word=1.33):
+        self.toks = 0
+        self.seq_len = seq_len
+        self.grad_acc = grad_acc
+        self.bsz = bsz
+        self.tok_per_word = tok_per_word
+        
+        # Milestones in millions of words
+        # 1M to 10M (step 1M), then 20M to 100M (step 10M), then 200M to 1000M (step 100M)
+        ms = list(range(1, 11)) + [i * 10 for i in range(2, 11)] + [i * 100 for i in range(2, 11)]
+        self.milestone_toks = [int(m * 1e6 * self.tok_per_word) for m in ms]
+        self.next_milestone_idx = 0
+
+    def on_step_end(self, args, state, control, **kwargs):
+        # Calculate tokens processed in this step
+        # Note: This assumes full batches. For more precision, one could sum actual input lengths.
+        step_toks = self.bsz * self.seq_len * self.grad_acc
+        self.toks += step_toks
+        
+        if self.next_milestone_idx < len(self.milestone_toks):
+            next_milestone = self.milestone_toks[self.next_milestone_idx]
+            if self.toks >= next_milestone:
+                control.should_save = True
+                print(f"Milestone reached: {next_milestone/self.tok_per_word/1e6:.1f}M words ({self.toks} tokens). Saving checkpoint...")
+                self.next_milestone_idx += 1
+
+
 class DistillationTrainer(Trainer):
     def __init__(self, *args, teacher_models=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -181,32 +211,5 @@ trainer.save_model(MODEL_OUTPUT)
 tokenizer.save_pretrained(MODEL_OUTPUT)
 
 
-from transformers import TrainerCallback
 
-class WordMilestoneCB(TrainerCallback):
-    def __init__(self, seq_len, grad_acc, bsz, tok_per_word=1.33):
-        self.toks = 0
-        self.seq_len = seq_len
-        self.grad_acc = grad_acc
-        self.bsz = bsz
-        self.tok_per_word = tok_per_word
-        
-        # Milestones in millions of words
-        # 1M to 10M (step 1M), then 20M to 100M (step 10M), then 200M to 1000M (step 100M)
-        ms = list(range(1, 11)) + [i * 10 for i in range(2, 11)] + [i * 100 for i in range(2, 11)]
-        self.milestone_toks = [int(m * 1e6 * self.tok_per_word) for m in ms]
-        self.next_milestone_idx = 0
-
-    def on_step_end(self, args, state, control, **kwargs):
-        # Calculate tokens processed in this step
-        # Note: This assumes full batches. For more precision, one could sum actual input lengths.
-        step_toks = self.bsz * self.seq_len * self.grad_acc
-        self.toks += step_toks
-        
-        if self.next_milestone_idx < len(self.milestone_toks):
-            next_milestone = self.milestone_toks[self.next_milestone_idx]
-            if self.toks >= next_milestone:
-                control.should_save = True
-                print(f"Milestone reached: {next_milestone/self.tok_per_word/1e6:.1f}M words ({self.toks} tokens). Saving checkpoint...")
-                self.next_milestone_idx += 1
 

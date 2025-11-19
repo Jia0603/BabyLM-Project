@@ -225,6 +225,18 @@ Checkpoints are saved in `models/GPT2-Small-Distilled/` and are **not** automati
 ### Example SLURM Commands
 
 ```bash
+# Query available GPUs 
+sinfo | grep gpu
+
+# Cancel job
+scancel 1722379
+
+# Cancel all jobs
+scancel -u username
+
+# Check job status
+squeue -u username  
+
 # Request GPU
 salloc -p gpua100 -t 4:00:00 --gres=gpu:1
 
