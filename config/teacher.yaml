@@ -1,0 +1,8 @@
+model_name_or_path: "Zhe-Zhang/GPT2-Large-BabyLM"
+prompt_template_path: "prompts/teacher_prompt.md"
+temperature: 0.2
+max_tokens: 6
+min_score: 0
+max_score: 3
+default_score: 0.5
+seed: 42
