@@ -139,3 +139,23 @@ class GPT2LargeTeacher(Teacher):
         except Exception as e:
             logger.error("✗ Error initializing model: %s", e)
             raise
+
+class Llama3Teacher(Teacher):
+    def __init__(self, config: Dict):
+        super().__init__(config=config)
+
+    def load_model(self):
+        try:
+            self.model = LLM(
+                model=self.model_name,
+                dtype="bfloat16",
+                enable_lora=False,
+                gpu_memory_utilization=0.25,
+                max_seq_len_to_capture = 1024,
+                max_model_len = 1024,
+                
+            )
+            logger.info("Llama LLM model initialized ✓")
+        except Exception as e:
+            logger.error("✗ Error initializing model: %s", e)
+            raise

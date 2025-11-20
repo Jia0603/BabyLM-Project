@@ -1,7 +1,7 @@
 from interactive.utils import LoggerFactory
 import torch
 from abc import ABC, abstractmethod
-from interactive.teacher_fb import GPT2LargeTeacher
+from interactive.teacher_fb import GPT2LargeTeacher, Llama3Teacher
 
 class RewardModel(ABC):
     @abstractmethod
@@ -32,6 +32,21 @@ class GPT2RewardModel(RewardModel):
     def __init__(self, config):
         super().__init__()
         self.teacher_model = GPT2LargeTeacher(config=config)
+
+    def __call__(self, prompt_completion_pairs):
+        rewards, raw_outputs, total_length = self.teacher_model.evaluate_batch(prompt_completion_pairs)
+
+        reward_tensors = [torch.tensor(float(r), dtype=torch.float32) for r in rewards]
+        return {
+            "rewards": reward_tensors,
+            "raw_outputs": raw_outputs,
+            "total_length": total_length,
+        }
+
+class Llama3RewardModel(RewardModel):
+    def __init__(self, config):
+        super().__init__()
+        self.teacher_model = Llama3Teacher(config=config)
 
     def __call__(self, prompt_completion_pairs):
         rewards, raw_outputs, total_length = self.teacher_model.evaluate_batch(prompt_completion_pairs)
