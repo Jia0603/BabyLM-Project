@@ -1,4 +1,4 @@
-model_name: Zhe-Zhang/GPT2-Small-Distilled
+model_name: Zhe-Zhang/GPT2-Small-BabyLM-CE
 revision_name: None
 learning_rate: 1e-6
 log_with: wandb
