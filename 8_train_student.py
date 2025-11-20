@@ -104,47 +104,47 @@ class DistillationTrainingArguments(TrainingArguments):
 
 from transformers import TrainerCallback
 
-class WordMilestoneCB(TrainerCallback):
-    def __init__(self, seq_len, grad_acc, bsz, tok_per_word=1.33):
-        self.toks = 0
-        self.seq_len = seq_len
-        self.grad_acc = grad_acc
-        self.bsz = bsz
-        self.tok_per_word = tok_per_word
+# class WordMilestoneCB(TrainerCallback):
+#     def __init__(self, seq_len, grad_acc, bsz, tok_per_word=1.33):
+#         self.toks = 0
+#         self.seq_len = seq_len
+#         self.grad_acc = grad_acc
+#         self.bsz = bsz
+#         self.tok_per_word = tok_per_word
         
-        # Milestones in millions of words
-        # 1M to 10M (step 1M), then 20M to 100M (step 10M), then 200M to 1000M (step 100M)
-        ms = list(range(1, 11)) + [i * 10 for i in range(2, 11)] + [i * 100 for i in range(2, 11)]
-        self.milestones_m = ms  # Store milestone values in millions
-        self.milestone_toks = [int(m * 1e6 * self.tok_per_word) for m in ms]
-        self.next_milestone_idx = 0
+#         # Milestones in millions of words
+#         # 1M to 10M (step 1M), then 20M to 100M (step 10M), then 200M to 1000M (step 100M)
+#         ms = list(range(1, 11)) + [i * 10 for i in range(2, 11)] + [i * 100 for i in range(2, 11)]
+#         self.milestones_m = ms  # Store milestone values in millions
+#         self.milestone_toks = [int(m * 1e6 * self.tok_per_word) for m in ms]
+#         self.next_milestone_idx = 0
 
-    def on_step_end(self, args, state, control, **kwargs):
-        # Calculate tokens processed in this step
-        # Note: This assumes full batches. For more precision, one could sum actual input lengths.
-        step_toks = self.bsz * self.seq_len * self.grad_acc
-        self.toks += step_toks
+#     def on_step_end(self, args, state, control, **kwargs):
+#         # Calculate tokens processed in this step
+#         # Note: This assumes full batches. For more precision, one could sum actual input lengths.
+#         step_toks = self.bsz * self.seq_len * self.grad_acc
+#         self.toks += step_toks
         
-        if self.next_milestone_idx < len(self.milestone_toks):
-            next_milestone = self.milestone_toks[self.next_milestone_idx]
-            if self.toks >= next_milestone:
-                # Get trainer and model from kwargs
-                model = kwargs.get('model')
-                tokenizer = kwargs.get('tokenizer')
+#         if self.next_milestone_idx < len(self.milestone_toks):
+#             next_milestone = self.milestone_toks[self.next_milestone_idx]
+#             if self.toks >= next_milestone:
+#                 # Get trainer and model from kwargs
+#                 model = kwargs.get('model')
+#                 tokenizer = kwargs.get('tokenizer')
                 
-                # Create custom checkpoint name
-                milestone_m = self.milestones_m[self.next_milestone_idx]
-                checkpoint_name = f"checkpoint_{milestone_m}M"
-                checkpoint_path = Path(args.output_dir) / checkpoint_name
+#                 # Create custom checkpoint name
+#                 milestone_m = self.milestones_m[self.next_milestone_idx]
+#                 checkpoint_name = f"checkpoint_{milestone_m}M"
+#                 checkpoint_path = Path(args.output_dir) / checkpoint_name
                 
-                # Save model manually
-                print(f"Milestone reached: {milestone_m}M words ({self.toks} tokens). Saving checkpoint to {checkpoint_name}...")
-                model.save_pretrained(checkpoint_path)
-                if tokenizer is not None:
-                    tokenizer.save_pretrained(checkpoint_path)
+#                 # Save model manually
+#                 print(f"Milestone reached: {milestone_m}M words ({self.toks} tokens). Saving checkpoint to {checkpoint_name}...")
+#                 model.save_pretrained(checkpoint_path)
+#                 if tokenizer is not None:
+#                     tokenizer.save_pretrained(checkpoint_path)
                 
-                self.next_milestone_idx += 1
-                # Don't set control.should_save since we're saving manually
+#                 self.next_milestone_idx += 1
+#                 # Don't set control.should_save since we're saving manually
 
 
 class DistillationTrainer(Trainer):
@@ -189,7 +189,7 @@ class DistillationTrainer(Trainer):
 training_args = DistillationTrainingArguments(
     output_dir=MODEL_OUTPUT,
     overwrite_output_dir=True,
-    save_strategy="no", # We use custom callback for saving
+    save_strategy="epoch", # We use custom callback for saving
     eval_strategy="epoch",  # Fixed: evaluation_strategy has been changed to eval_strategy
     num_train_epochs=6,
     report_to=[],
@@ -217,7 +217,7 @@ trainer = DistillationTrainer(
         data_collator=data_collator,
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
-        callbacks=[WordMilestoneCB(SEQ_LENGTH, 1, BATCH_SIZE)]
+        # callbacks=[WordMilestoneCB(SEQ_LENGTH, 1, BATCH_SIZE)]
     )
 
 trainer.train()
