@@ -1,7 +1,10 @@
 from interactive.utils import LoggerFactory
 import torch
 from abc import ABC, abstractmethod
-from interactive.teacher_fb import GPT2LargeTeacher, Llama3Teacher
+# from interactive.teacher_fb import GPT2LargeTeacher, Llama3Teacher
+from interactive.teacher_fb import Llama3Teacher
+
+logger = LoggerFactory.get_logger("ppo_trainer")
 
 class RewardModel(ABC):
     @abstractmethod
@@ -28,7 +31,7 @@ class RandomRewardModel(RewardModel):
         }
 
 
-class GPT2RewardModel(RewardModel):
+""" class GPT2RewardModel(RewardModel):
     def __init__(self, config):
         super().__init__()
         self.teacher_model = GPT2LargeTeacher(config=config)
@@ -41,7 +44,7 @@ class GPT2RewardModel(RewardModel):
             "rewards": reward_tensors,
             "raw_outputs": raw_outputs,
             "total_length": total_length,
-        }
+        } """
 
 class Llama3RewardModel(RewardModel):
     def __init__(self, config):

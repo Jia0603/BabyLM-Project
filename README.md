@@ -215,6 +215,9 @@ Checkpoints are saved in `models/GPT2-Small-Distilled/` and are **not** automati
 - **Checkpointing**: Saved at specific word-count milestones (1M, 2M... 10M, 20M... 100M, etc.)
 - **Output**: `models/GPT2-Small-Distilled/`
 
+### Teacher moModel for Reinforcement Learning
+- **Base Model**: Llama-3.1-8B-Instruct
+
 ## 🖥️ System Requirements
 
 ### GPU Memory Recommendations

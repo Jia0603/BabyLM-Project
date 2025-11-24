@@ -1,15 +1,15 @@
 model_name: Zhe-Zhang/GPT2-Small-Distilled
-revision_name: None
+revision_name: null
 learning_rate: 1e-6
 log_with: wandb
-hf_org : Zhe-Zhang
+hf_org : Shuying-Blaise # Save the model in my account
 
 
 
 # Trainer Settings
 num_epochs: 1
-batch_size: 360
-token_limit: 1000000
+batch_size: 32 # 360, 64
+token_limit: 10000 # 1000000
 # checkpoint_interval: 200000
 save_base_dir: saved_models/
 
@@ -24,7 +24,7 @@ data_path: data/ppo/
 # Output generation
 generation_kwargs:
   min_length: -1
-  max_new_tokens: 90
+  max_new_tokens: 64 # 90
   top_k: 0
   top_p: 1
   do_sample: true

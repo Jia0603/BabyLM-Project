@@ -1,9 +1,12 @@
-from vllm import LLM, SamplingParams
+# from vllm import LLM, SamplingParams
 from interactive.utils import LoggerFactory, PromptCompletionPair
 from abc import ABC, abstractmethod
 from jinja2 import Template
 from typing import List, Tuple, Dict
 import re
+
+import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
 logger = LoggerFactory.get_logger("ppo_trainer")
 
@@ -14,10 +17,21 @@ class Teacher(ABC):
         """
         self.model_name = config["model_name_or_path"]
         self.prompt_template = self.load_prompt(config["prompt_template_path"])
-        self.sampling_params = SamplingParams(temperature=config["temperature"], max_tokens=config["max_tokens"], seed=config["seed"])
+
+        # self.sampling_params = SamplingParams(temperature=config["temperature"], max_tokens=config["max_tokens"], seed=config["seed"])
+        self.temperature = config.get("temperature", 0.2)
+        self.max_tokens = config.get("max_tokens", 6)
+        self.seed = config.get("seed", 42)
+
         self.min_score = config.get("min_score", 0)
         self.max_score = config.get("max_score", 3)
         self.default_score = config.get("default_score", 0.5)
+
+        # For reproducibility of generation
+        torch.manual_seed(self.seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(self.seed)
+
         logger.info("Initializing teacher model: %s", self.model_name)
         self.load_model()
 
@@ -27,6 +41,59 @@ class Teacher(ABC):
         Override this method to use your preferred backend.
         """
         raise NotImplementedError("Implement model loading logic here")
+
+        """
+        
+        Load the teacher model using Hugging Face (no vLLM).
+        Tries 4-bit quantization first, falls back to fp16/fp32.
+        
+        try:
+            self.device = "cuda" if torch.cuda.is_available() else "cpu"
+
+            # Tokenizer
+            self.tokenizer = AutoModelForCausalLM.from_pretrained  # type check helper only
+            self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+
+            # Ensure we have a pad token
+            if self.tokenizer.pad_token is None:
+                if self.tokenizer.eos_token is not None:
+                    self.tokenizer.pad_token = self.tokenizer.eos_token
+                else:
+                    self.tokenizer.add_special_tokens({"pad_token": "[PAD]"})
+
+            # Try 4-bit loading
+            try:
+                bnb_config = BitsAndBytesConfig(
+                    load_in_4bit=True,
+                    bnb_4bit_quant_type="nf4",
+                    bnb_4bit_compute_dtype=torch.bfloat16,
+                    bnb_4bit_use_double_quant=True,
+                )
+                self.model = AutoModelForCausalLM.from_pretrained(
+                    self.model_name,
+                    quantization_config=bnb_config,
+                    device_map="auto",
+                )
+                logger.info("Teacher model loaded in 4-bit ✓")
+            except Exception as e:
+                logger.warning(
+                    "4-bit loading failed (%s). Falling back to fp16/fp32.", str(e)
+                )
+                self.model = AutoModelForCausalLM.from_pretrained(
+                    self.model_name,
+                    torch_dtype=torch.float16 if self.device == "cuda" else torch.float32,
+                ).to(self.device)
+                logger.info("Teacher model loaded in %s ✓", self.device)
+
+            # Resize embeddings if we added new tokens (pad)
+            if self.model.get_input_embeddings().weight.size(0) != len(self.tokenizer):
+                self.model.resize_token_embeddings(len(self.tokenizer))
+
+            self.model.eval()
+        except Exception as e:
+            logger.error("✗ Error initializing teacher model: %s", e)
+            raise
+        """
 
     def parse_reward(self, text: str) -> float:
         """
@@ -120,7 +187,7 @@ class Teacher(ABC):
 
 
 
-class GPT2LargeTeacher(Teacher):
+""" class GPT2LargeTeacher(Teacher):
     def __init__(self, config: Dict):
         super().__init__(config=config)
 
@@ -138,8 +205,9 @@ class GPT2LargeTeacher(Teacher):
             logger.info("GPT2-Large model initialized ✓")
         except Exception as e:
             logger.error("✗ Error initializing model: %s", e)
-            raise
+            raise """
 
+"""
 class Llama3Teacher(Teacher):
     def __init__(self, config: Dict):
         super().__init__(config=config)
@@ -148,10 +216,10 @@ class Llama3Teacher(Teacher):
         try:
             self.model = LLM(
                 model=self.model_name,
-                dtype="bfloat16",
+                dtype="float16", # bfloat16
                 enable_lora=False,
-                gpu_memory_utilization=0.25,
-                max_seq_len_to_capture = 1024,
+                gpu_memory_utilization=0.9, # 0.25
+                max_seq_len_to_capture = 512, # 1024
                 max_model_len = 1024,
                 
             )
@@ -159,3 +227,110 @@ class Llama3Teacher(Teacher):
         except Exception as e:
             logger.error("✗ Error initializing model: %s", e)
             raise
+"""
+class Llama3Teacher(Teacher):
+    def __init__(self, config: Dict):
+        super().__init__(config=config)
+
+    def load_model(self):
+        try:
+            self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+
+            # For decoder-only models (like Llama), use left padding:
+            if self.tokenizer.pad_token_id is None:
+                self.tokenizer.pad_token = self.tokenizer.eos_token
+            self.tokenizer.padding_side = "left"
+
+            self.model = AutoModelForCausalLM.from_pretrained(
+                self.model_name,
+                torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
+                device_map="auto",
+            )
+            self.model.eval()
+            logger.info("Llama HF model initialized ✓")
+        except Exception as e:
+            logger.error("✗ Error initializing HF model: %s", e)
+            raise
+
+    def _build_messages(self, sample: PromptCompletionPair):
+        # System: grading guidelines
+        system_content = (
+            "You are a helpful teacher grading a student story. "
+            "You must output exactly three integers between 0 and 3, separated by spaces: "
+            "Readability Narrative Creativity. Do not output anything else."
+        )
+
+        # User: we reuse your Jinja template to show the rubric + story
+        user_content = self.prompt_template.render(
+            story_prompt=sample.prompt,
+            student_completion=sample.completion,
+        )
+
+        return [
+            {"role": "system", "content": system_content},
+            {"role": "user", "content": user_content},
+        ]
+
+    def evaluate_batch(self, batch: list[PromptCompletionPair]):
+        logger.debug("Evaluating batch of %d samples (HF chat backend)", len(batch))
+
+        # 1) Build chat prompts
+        messages_list = [self._build_messages(s) for s in batch]
+
+        # 2) Convert to text with chat template
+        texts = [
+            self.tokenizer.apply_chat_template(
+                msgs,
+                tokenize=False,
+                add_generation_prompt=True,
+            )
+            for msgs in messages_list
+        ]
+
+        # 3) Tokenize
+        enc = self.tokenizer(
+            texts,
+            return_tensors="pt",
+            padding=True,
+            truncation=True,
+        ).to(self.model.device)
+
+        input_ids = enc["input_ids"]
+        attn_mask = enc["attention_mask"]
+        input_lengths = attn_mask.sum(dim=1).tolist()
+
+        # 4) Generate
+        with torch.no_grad():
+            gen = self.model.generate(
+                input_ids=input_ids,
+                attention_mask=attn_mask,
+                max_new_tokens=self.max_tokens,
+                temperature=self.temperature,
+                do_sample=True,
+                pad_token_id=self.tokenizer.eos_token_id,
+            )
+
+        raw_outputs = []
+        rewards = []
+        total_length = 0
+
+        # 5) Decode only the new tokens (teacher answer)
+        for i in range(len(batch)):
+            gen_ids = gen[i][input_lengths[i]:]
+            text = self.tokenizer.decode(gen_ids, skip_special_tokens=True).strip()
+            raw_outputs.append(text)
+
+            try:
+                reward = self.parse_reward(text)
+            except Exception as e:
+                logger.warning("Score parsing failed for output '%s': %s", text, str(e))
+                reward = self.default_score
+
+            rewards.append(reward)
+            total_length += len(text.split())
+
+        logger.debug("Raw outputs: %s", raw_outputs)
+        logger.debug("Rewards: %s", rewards)
+        logger.debug("Total teacher words: %s", total_length)
+
+        return rewards, raw_outputs, total_length

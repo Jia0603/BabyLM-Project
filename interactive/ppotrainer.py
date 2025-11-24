@@ -57,13 +57,14 @@ class CustomPPOTrainer(PPOTrainer):
         hf_base_repo: str | None = None,  
         hf_org: str | None = None,
         save_meta_dir: str | None = None,  
-        word_budget: int = 100_000_000,
-        gen_word_budget: int = 100_000_000,
+        word_budget: int = 100_000, # 100_000_000
+        gen_word_budget: int = 100_000, # 100_000_000
         save_base_dir: str | None = None,
 
         wandb_project: str | None = None,
         wandb_tags: list[str] | None = None,
         watch_model: bool = False,
+        push_to_hub: bool = True,   # Cancel the auto push to hub
     ) -> None:
         super().__init__(
             config,
@@ -79,6 +80,7 @@ class CustomPPOTrainer(PPOTrainer):
         self.word_budget = word_budget
         self.gen_word_budget = gen_word_budget
         self._prompt_charged = False  # Track if we have already counted the prompt words
+        self.push_to_hub = push_to_hub
 
         teacher_config_path = "config/teacher.yaml"
         try:
@@ -134,6 +136,11 @@ class CustomPPOTrainer(PPOTrainer):
             if watch_model:
                 wandb.watch(self.model, log="all", log_freq=1_000)
 
+        if hf_org:
+            self.repo_id = f"{hf_org}/{name_with_budget}"
+        else:
+            self.repo_id = name_with_budget
+
 
     def set_generation_kwargs(self, **kwargs):
         self.gen_kwargs.update(kwargs)
@@ -148,6 +155,10 @@ class CustomPPOTrainer(PPOTrainer):
 
     def _push_to_hub(self, branch: str, msg: str):
         """Upload model+tokenizer to a branch using a single HfApi handle."""
+
+        if not self.push_to_hub:
+            logger.info("push_to_hub=False → skipping upload to Hugging Face Hub.")
+            return
 
         self.api.create_repo(repo_id=self.repo_id, exist_ok=True, repo_type="model")
         if branch != "main":
@@ -174,42 +185,49 @@ class CustomPPOTrainer(PPOTrainer):
 
 
     # def _push_checkpoint(self, words_used: int):
+    #     if not self.push_to_hub:
+    #         return
     #     tag = fmt_tokens(words_used)
     #     branch = f"chck_{tag}_words"
     #     self._push_to_hub(branch, f"Checkpoint at {tag} words")
 
     def _push_final(self):
+        if not self.push_to_hub:
+            logger.info("push_to_hub=False → skipping final upload.")
+            return
         self._push_to_hub("main", "Final model push")
 
 
     def _dump_logs(self):
-        if self.generated_log:
-            cleaned_log = []
-            for row in self.generated_log:
-                # must be a list/tuple of length 3
-                if not (isinstance(row, (list, tuple)) and len(row) == 3):
-                    logger.warning(f"Malformed row in generated_log: {row}")
-                    continue
-                cleaned_log.append([str(x).replace('\r', ' ').replace('\n', ' ') for x in row])
+        """
+        Dump sample prompt / completion / reward triples to CSV if available.
+        This is only for debugging / inspection and is safe to no-op if empty.
+        """
+        sample_logs = getattr(self, "sample_logs", None)
+        if not sample_logs:
+            logger.info("No sample logs to dump.")
+            return
 
-            with open(os.path.join(self.,meta_dir "generated.csv"), "w", newline="", encoding="utf-8") as f:
-                writer = csv.writer(f, quoting=csv.QUOTE_ALL)
-                writer.writerow(["query", "student_output", "teacher_output"])
-                writer.writerows(cleaned_log)
-        if self.batch_logs:
-            with open(os.path.join(self.meta_dir, "batch_stats.csv"), "w", newline="") as f:
-                w = csv.DictWriter(f, self.batch_logs[0].keys()); w.writeheader(); w.writerows(self.batch_logs)
-        logger.info("Logs saved → %s", self.meta_dir)
-+
-        # Save config files
-        ppo_config_path = "config/ppo.yaml"
-        teacher_config_path = "config/teacher.yaml"
-        try:
-            shutil.copy(ppo_config_path, os.path.join(self.meta_dir, "ppo.yaml"))
-            shutil.copy(teacher_config_path, os.path.join(self.meta_dir, "teacher.yaml"))
-            logger.info("Config files saved to meta_data.")
-        except Exception as e:
-            logger.warning("Could not save config files to meta_data: %s", e)
+        out_path = os.path.join(self.base_out_dir, "sample_logs.csv")
+        logger.info(f"Writing sample logs to: {out_path}")
+
+        os.makedirs(os.path.dirname(out_path), exist_ok=True)
+        with open(out_path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(["prompt", "completion", "reward"])
+
+            for entry in sample_logs:
+                if isinstance(entry, dict):
+                    prompt = entry.get("prompt", "")
+                    completion = entry.get("completion", "")
+                    reward = entry.get("reward", "")
+                else:
+                    try:
+                        prompt, completion, reward = entry
+                    except Exception:
+                        prompt, completion, reward = str(entry), "", ""
+
+                writer.writerow([prompt, completion, reward])
 
 
     def run_training_loop(self, num_epochs: int = 1):
