@@ -97,7 +97,7 @@ python 8_train_student.py
 
 This trains a randomly initialized GPT-2 Small using knowledge distillation from the teacher.
 
-#### Step 5: Distill MoE-P Student Model (New!)
+#### Step 5: Distill MoE-P Student Model
 
 ```bash
 python train_moep_student.py
@@ -105,7 +105,7 @@ python train_moep_student.py
 
 This trains a custom **MoE-P (Mixture-of-Experts with Parallel Layers)** student model using knowledge distillation. The configuration aligns with the MoEP paper (Table 2 & 3).
 
-#### Step 6: Reinforcement Learning with PPO (New!)
+#### Step 6: Reinforcement Learning with PPO
 
 ```bash
 python ppo.py
@@ -116,7 +116,7 @@ This runs the PPO training loop using:
 - **Reward Model**: Llama-3.1-8B-Instruct (or Random for testing)
 - **Dataset**: Interactive prompts (TinyStories, WritingPrompts, etc.)
 
-### Evaluation Pipeline (New!)
+### Evaluation Pipeline
 
 We support the official BabyLM zero-shot evaluation suite (BLiMP, EWoK, etc.).
 
@@ -129,7 +129,7 @@ cd eval
 ./eval_zero_shot.sh /absolute/path/to/models/MoEP-Student-Distilled-PaperCfg causal
 ```
 
-**Note:** For custom models like MoE-P, we have provided a wrapper script (`eval_moep_wrapper.py`) and modified `run.py` to automatically register the model architecture.
+**Note:** For custom models like MoE-P, we have modified `run.py` to automatically register the model architecture.
 
 
 
@@ -151,12 +151,13 @@ BabyLM/
 │   ├── GPT2-Large-BabyLM/         # Fine-tuned teacher
 │   ├── GPT2-Small-BabyLM-CE/      # Baseline student
 │   ├── GPT2-Small-Distilled/      # Distilled student
-│   └── MoEP-Student-Distilled-PaperCfg/ # MoE-P student
-├── eval/                          # Evaluation suite (New!)
+│   ├── GPT2-Small-Distilled-RL/   # RL-tuned student (PPO)
+│   ├── MoEP-Student-Distilled/    # MoE-P student (Initial)
+│   └── MoEP-Student-Distilled-PaperCfg/ # MoE-P student (Paper Config)
+├── eval/                          # Evaluation suite
 │   ├── eval_zero_shot.sh          # Evaluation script
-│   ├── eval_moep_wrapper.py       # Wrapper for MoEP evaluation
 │   └── ...
-├── interactive/                   # RL / Interactive components (New!)
+├── interactive/                   # RL / Interactive components
 │   ├── ppotrainer.py              # Custom PPO Trainer
 │   ├── reward.py                  # Reward models (Llama-3, Random)
 │   └── ...
@@ -164,9 +165,9 @@ BabyLM/
 ├── 7_train_teachers.py            # Teacher fine-tuning (full/LoRA/QLoRA)
 ├── train_gpt2_small_ce.py        # Baseline student training
 ├── 8_train_student.py             # Student distillation
-├── train_moep_student.py          # MoE-P student distillation (New!)
-├── modeling_moep.py               # MoE-P model definition (New!)
-├── ppo.py                         # PPO training entry point (New!)
+├── train_moep_student.py          # MoE-P student distillation
+├── modeling_moep.py               # MoE-P model definition
+├── ppo.py                         # PPO training entry point
 ├── custom_dataset.py              # PyTorch dataset class
 ├── gpt2-large-babylm.yaml        # Training configuration
 └── README.md
@@ -251,9 +252,9 @@ Where:
 ### Tokenizer
 
 We use GPT-2's original tokenizer (50,257 vocabulary) for full compatibility with pre-trained models. This ensures:
-- ✅ Perfect compatibility with GPT-2 pre-trained weights
-- ✅ No vocabulary mapping needed
-- ✅ Stable training
+- Perfect compatibility with GPT-2 pre-trained weights
+- No vocabulary mapping needed
+- Stable training
 
 ### Checkpointing Strategy
 
@@ -350,25 +351,25 @@ source ~/BabyLM/babylm/bin/activate
 
 This is our initial implementation completed during Week 1 (November 11-18, 2024). The current version includes:
 
-### ✅ Completed
+### Completed
 - Basic knowledge distillation pipeline
 - Teacher model fine-tuning (full and LoRA/QLoRA)
 - Student model training with distillation
 - Baseline comparison model
 - Data preparation with coherence preservation
 
-### 📝 Notes
+### Notes
 - Results are preliminary and subject to change
 - Configuration parameters may be adjusted in future iterations
 - Evaluation metrics and methodology may be refined
 
 ### Week 2 (Nov 19-25, 2024)
 
-- ✅ **MoE-P Architecture**: Implemented `modeling_moep.py` with parallel layers and router.
-- ✅ **MoE-P Distillation**: Created `train_moep_student.py` to distill knowledge into MoE-P.
-- ✅ **Reinforcement Learning**: Implemented `ppo.py` and `interactive/` module for RLHF training.
-- ✅ **Evaluation Pipeline**: Integrated official BabyLM evaluation suite with support for custom MoE-P models.
-- ✅ **Paper Alignment**: Aligned MoE-P hyperparameters with the original paper.
+- **MoE-P Architecture**: Implemented `modeling_moep.py` with parallel layers and router.
+- **MoE-P Distillation**: Created `train_moep_student.py` to distill knowledge into MoE-P.
+- **Reinforcement Learning**: Implemented `ppo.py` and `interactive/` module for RLHF training.
+- **Evaluation Pipeline**: Integrated official BabyLM evaluation suite with support for custom MoE-P models.
+- **Paper Alignment**: Aligned MoE-P hyperparameters with the original paper.
 
 ## 🔗 References
 
