@@ -2,8 +2,10 @@
 
 A knowledge distillation project for training small language models on the BabyLM dataset, transferring knowledge from a fine-tuned GPT-2 Large teacher model to a randomly initialized GPT-2 Small student model.
 
-> **Project Period**: November 11-18, 2025  
-> **Status**: Week 1 Implementation - Initial approach completed. The project is under active development and will be updated with improvements and refinements.
+> **Project Period**: November 11-25, 2025  
+> **Status**: 
+> - **Week 1 (Nov 11-18)**: Basic Distillation Pipeline & Baseline.
+> - **Week 2 (Nov 19-25)**: MoE-P Architecture, RL (PPO) Pipeline & Evaluation.
 
 ## 📊 Results
 
@@ -24,11 +26,15 @@ This project implements a complete knowledge distillation pipeline:
 1. **Teacher Model**: Fine-tune GPT-2 Large on BabyLM dataset
 2. **Student Model**: Train a randomly initialized GPT-2 Small using knowledge distillation
 3. **Baseline Comparison**: Train a randomly initialized GPT-2 Small with standard cross-entropy loss
+4. **MoE-P Architecture**: Implement Mixture-of-Experts with Parallel Layers (MoE-P) as a student model
+5. **Reinforcement Learning**: Implement PPO training with Llama-3 based reward model
 
 ### Architecture
 
 - **Teacher**: GPT-2 Large (774M parameters)
 - **Student**: GPT-2 Small (124M parameters)
+- **MoE-P Student**: Custom architecture based on "Mixture-of-Experts with Parallel Layers"
+- **RL Agent**: PPO-tuned model optimized for specific rewards
 - **Distillation Method**: KL divergence loss + student cross-entropy loss
 - **Temperature**: 2.0
 - **Alpha**: 0.5 (weighting between distillation and student loss)
@@ -91,6 +97,40 @@ python 8_train_student.py
 
 This trains a randomly initialized GPT-2 Small using knowledge distillation from the teacher.
 
+#### Step 5: Distill MoE-P Student Model (New!)
+
+```bash
+python train_moep_student.py
+```
+
+This trains a custom **MoE-P (Mixture-of-Experts with Parallel Layers)** student model using knowledge distillation. The configuration aligns with the MoEP paper (Table 2 & 3).
+
+#### Step 6: Reinforcement Learning with PPO (New!)
+
+```bash
+python ppo.py
+```
+
+This runs the PPO training loop using:
+- **Policy Model**: Your trained student model
+- **Reward Model**: Llama-3.1-8B-Instruct (or Random for testing)
+- **Dataset**: Interactive prompts (TinyStories, WritingPrompts, etc.)
+
+### Evaluation Pipeline (New!)
+
+We support the official BabyLM zero-shot evaluation suite (BLiMP, EWoK, etc.).
+
+**Run Zero-shot Evaluation:**
+
+```bash
+cd eval
+# Usage: ./eval_zero_shot.sh <Model Path> <Backend> [Data Path]
+# Note: Use absolute path for the model
+./eval_zero_shot.sh /absolute/path/to/models/MoEP-Student-Distilled-PaperCfg causal
+```
+
+**Note:** For custom models like MoE-P, we have provided a wrapper script (`eval_moep_wrapper.py`) and modified `run.py` to automatically register the model architecture.
+
 
 
 ## 📁 Project Structure
@@ -110,11 +150,23 @@ BabyLM/
 ├── models/                        # Trained models
 │   ├── GPT2-Large-BabyLM/         # Fine-tuned teacher
 │   ├── GPT2-Small-BabyLM-CE/      # Baseline student
-│   └── GPT2-Small-Distilled/      # Distilled student
+│   ├── GPT2-Small-Distilled/      # Distilled student
+│   └── MoEP-Student-Distilled-PaperCfg/ # MoE-P student
+├── eval/                          # Evaluation suite (New!)
+│   ├── eval_zero_shot.sh          # Evaluation script
+│   ├── eval_moep_wrapper.py       # Wrapper for MoEP evaluation
+│   └── ...
+├── interactive/                   # RL / Interactive components (New!)
+│   ├── ppotrainer.py              # Custom PPO Trainer
+│   ├── reward.py                  # Reward models (Llama-3, Random)
+│   └── ...
 ├── combine_babylm.py              # Data preparation
 ├── 7_train_teachers.py            # Teacher fine-tuning (full/LoRA/QLoRA)
 ├── train_gpt2_small_ce.py        # Baseline student training
 ├── 8_train_student.py             # Student distillation
+├── train_moep_student.py          # MoE-P student distillation (New!)
+├── modeling_moep.py               # MoE-P model definition (New!)
+├── ppo.py                         # PPO training entry point (New!)
 ├── custom_dataset.py              # PyTorch dataset class
 ├── gpt2-large-babylm.yaml        # Training configuration
 └── README.md
@@ -163,6 +215,22 @@ training:
 - Temperature: 2.0
 - Alpha: 0.5 (distillation loss weight)
 - Loss: KL divergence + cross-entropy
+
+### MoE-P Student Configuration (`train_moep_student.py`)
+
+Based on the MoEP paper (Table 2 & 3):
+
+- **Dimensions**: `dim=384`, `n_heads=6`, `n_layers=12`
+- **MoE Params**: `n_experts=4`, `top_k=2`
+- **Parallel Layers**: `parallel_dim=192`, `parallel_n_heads=3`
+- **Training**: `lr=3e-4`, `batch_size=16`, `seq_len=512`
+
+### RL Configuration (`config/ppo.yaml`)
+
+- **Algorithm**: PPO (Proximal Policy Optimization)
+- **Library**: `trl` (Transformer Reinforcement Learning)
+- **Reward Model**: Llama-3.1-8B-Instruct (via `interactive.reward`)
+- **Environment**: Interactive text generation
 
 ## 🔬 Methodology
 
@@ -276,7 +344,9 @@ source ~/BabyLM/babylm/bin/activate
 
 
 
-## 📅 Implementation Status (Nov 11-18, 2024)
+## 📅 Implementation Status
+
+### Week 1 (Nov 11-18, 2024)
 
 This is our initial implementation completed during Week 1 (November 11-18, 2024). The current version includes:
 
@@ -291,6 +361,14 @@ This is our initial implementation completed during Week 1 (November 11-18, 2024
 - Results are preliminary and subject to change
 - Configuration parameters may be adjusted in future iterations
 - Evaluation metrics and methodology may be refined
+
+### Week 2 (Nov 19-25, 2024)
+
+- ✅ **MoE-P Architecture**: Implemented `modeling_moep.py` with parallel layers and router.
+- ✅ **MoE-P Distillation**: Created `train_moep_student.py` to distill knowledge into MoE-P.
+- ✅ **Reinforcement Learning**: Implemented `ppo.py` and `interactive/` module for RLHF training.
+- ✅ **Evaluation Pipeline**: Integrated official BabyLM evaluation suite with support for custom MoE-P models.
+- ✅ **Paper Alignment**: Aligned MoE-P hyperparameters with the original paper.
 
 ## 🔗 References
 
