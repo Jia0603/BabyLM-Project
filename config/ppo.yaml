@@ -8,10 +8,10 @@ hf_org : Shuying-Blaise # Save the model in my account
 
 # Trainer Settings
 num_epochs: 1
-batch_size: 32 # 360, 64
-token_limit: 10000 # 1000000
+batch_size: 128 # 360, 64
+token_limit: 500000 # 1000000
 # checkpoint_interval: 200000
-save_base_dir: saved_models/
+save_base_dir: models/
 
 
 #query settings (range for sampling length of student input)
@@ -24,7 +24,7 @@ data_path: data/ppo/
 # Output generation
 generation_kwargs:
   min_length: -1
-  max_new_tokens: 64 # 90
+  max_new_tokens: 90 # 90
   top_k: 0
   top_p: 1
   do_sample: true

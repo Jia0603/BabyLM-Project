@@ -10,7 +10,6 @@ import torch
 from tqdm import tqdm
 from transformers import AutoTokenizer
 from trl import PPOTrainer
-from trl.core import LengthSampler
 
 from interactive.utils import LoggerFactory, PromptCompletionPair
 import shutil
@@ -57,8 +56,8 @@ class CustomPPOTrainer(PPOTrainer):
         hf_base_repo: str | None = None,  
         hf_org: str | None = None,
         save_meta_dir: str | None = None,  
-        word_budget: int = 100_000, # 100_000_000
-        gen_word_budget: int = 100_000, # 100_000_000
+        word_budget: int = 100_000_000,
+        gen_word_budget: int = 100_000_000,
         save_base_dir: str | None = None,
 
         wandb_project: str | None = None,

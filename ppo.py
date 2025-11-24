@@ -107,7 +107,7 @@ def main(ppo_cfg, teacher_cfg):
         reward_fn=reward_model,
         word_budget=token_limit,
         hf_org=ppo_cfg.get("hf_org", "llm-slice"),
-        save_base_dir=os.path.join(scratch, ppo_cfg.get("save_base_dir", "saved_models")),
+        save_base_dir=ppo_cfg.get("save_base_dir", "saved_models"),
         wandb_project="ppo-rlhf",   
         push_to_hub=True,  # Autopush flag
     )
