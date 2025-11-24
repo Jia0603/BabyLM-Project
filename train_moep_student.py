@@ -15,25 +15,28 @@ from torch.utils.data import Subset
 from random import sample
 
 from custom_dataset import CustomDataset
-# [关键] 引入刚才定义的 MoEP 模型
 from modeling_moep import MoEPForCausalLM, MoEPLMConfig
 
 #############
-# Hyperparameters
-LR = 2.5e-4
-BATCH_SIZE = 32
-SEQ_LENGTH = 128  # 注意：如果以后改大这里，记得检查 max_position_embeddings
-TEMPERATURE = 2.0
-ALPHA = 0.5
+# Hyperparameters (根据 MoEP 论文 Table 3 修改)
+#############
+LR = 3e-4              # [修改] 论文: 3x10^-4
+BATCH_SIZE = 16        # [修改] 论文: 16
+SEQ_LENGTH = 512       # [修改] 论文: 512 (这对 BLiMP 等评测非常关键)
+TEMPERATURE = 2.0      # 保持不变 (Distillation 参数论文未详述，由你决定)
+ALPHA = 0.5            # 保持不变
+EPOCHS = 10            # [修改] 论文: 10 epochs
+WARMUP_STEPS = 800     # [修改] 论文: 800 steps
+ADAM_BETAS = (0.9, 0.95) # [修改] 论文: (0.9, 0.95)
 #############
 
 PATH = Path("./")
 
-# Teacher model: Fine-tuned GPT-2 Large (保持不变)
+# Teacher model
 teacher_dir = PATH / 'models/GPT2-Large-BabyLM'
 
-# Student model: MoEP (Updated to GPT-2 Small scale)
-MODEL_NAME = f'MoEP-Student-Distilled'
+# Student model
+MODEL_NAME = f'MoEP-Student-Distilled-PaperCfg'
 MODEL_OUTPUT = Path('./models') / MODEL_NAME
 EVAL_SAMPLES = 8192
 
@@ -66,31 +69,31 @@ eval_indices = sample(range(len(val_dataset)), min(EVAL_SAMPLES, len(val_dataset
 eval_dataset = Subset(val_dataset, eval_indices)
 
 # ============================================================
-# [核心修改 1] 配置升级：对标 GPT-2 Small (124M)
+# [核心修改] 配置：完全对标 MoEP 论文 (Table 2)
 # ============================================================
-print("Initializing MoEP Student Model (GPT-2 Small Scale)...")
+print("Initializing MoEP Student Model (Paper Configuration)...")
 
 student_config = MoEPLMConfig(
-    vocab_size=tokenizer.vocab_size,
+    vocab_size=tokenizer.vocab_size, # 保持和 Teacher 一致 (约为 50k)，虽然论文用 16k，但蒸馏必须对齐 Teacher
     bos_token_id=tokenizer.bos_token_id,
     eos_token_id=tokenizer.eos_token_id,
     pad_token_id=tokenizer.pad_token_id,
     
-    # 容量设置
-    max_position_embeddings=1024, # 直接给足 1024，防止长度不够
-    dim=768,             # [修改] 对标 GPT-2 Small (原384)
-    n_heads=12,          # [修改] 对标 GPT-2 Small (原6)
-    n_layers=12,         # 保持 12 层
+    # --- 论文参数 (Table 2) ---
+    max_position_embeddings=SEQ_LENGTH, # 512
+    dim=384,             # [修改] 论文 dmodel = 384
+    n_heads=6,           # [修改] 论文 Heads = 6 (384/6 = 64 head dim)
+    n_layers=12,         # [保持] 论文 "Layers 2/10" (2个Dense + 10个Parallel层) -> 代码逻辑对应 n_layers=12
     
-    # MoEP 特有结构参数 (按比例放大)
-    parallel_dim=384,    # [修改] 内部维度设为 dim 的一半 (原192)
-    parallel_n_heads=6,  # [修改] 384/64 = 6 heads (原3)
-    n_parallel_blocks=4, # 保持论文设置
-    n_experts=4,         # 保持论文设置
-    moe_k=2,             # 保持论文设置
-    parallel_k=2,        # 保持论文设置
+    # MoEP 特有参数
+    parallel_dim=192,    # [修改] 论文: 384/192 -> 内部维度 192
+    parallel_n_heads=3,  # [修改] 论文: 6/3 -> 内部头数 3 (192/64 = 3)
+    n_parallel_blocks=4, # [保持] 论文: Parallel blocks = 4
+    n_experts=4,         # [保持] 论文: N experts = 4
+    moe_k=2,             # [保持] 论文: Top k = 2
+    parallel_k=2,        # [保持] 论文: Top k = 2
     
-    aux_loss_weight=0.2
+    aux_loss_weight=0.2  # 论文提到 "load-balanced auxiliary loss"，具体权重未列出，0.2 是合理值
 )
 
 student = MoEPForCausalLM(student_config)
@@ -115,10 +118,9 @@ class DistillationTrainingArguments(TrainingArguments):
         self.alpha = alpha
         self.temperature = temperature
 
-# [核心修改 2] 修复 Tokenizer 报错
 class WordMilestoneCB(TrainerCallback):
     def __init__(self, tokenizer, api, repo_id, seq_len, grad_acc, bsz, output_dir, tok_per_word=1.33):
-        self.tokenizer = tokenizer  # <--- 1. 接收并保存 tokenizer
+        self.tokenizer = tokenizer
         self.api = api
         self.repo_id = repo_id
         self.toks = 0
@@ -153,9 +155,15 @@ class WordMilestoneCB(TrainerCallback):
                         shutil.rmtree(ckpt_path)
                     os.makedirs(ckpt_path, exist_ok=True)
                     
-                    # 2. 使用 self.tokenizer 而不是 kwargs['tokenizer']
+                    # 保存模型和 tokenizer
                     kwargs['model'].save_pretrained(ckpt_path, safe_serialization=False)
-                    self.tokenizer.save_pretrained(ckpt_path) 
+                    self.tokenizer.save_pretrained(ckpt_path)
+                    
+                    # 复制 modeling_moep.py 到 checkpoint 文件夹，方便评测加载                                       
+                    try:
+                        shutil.copy("modeling_moep.py", ckpt_path)
+                    except:
+                        pass
                     
                     if self.api and self.repo_id:
                         try:
@@ -198,7 +206,6 @@ class DistillationTrainer(Trainer):
 
         # Alignment check
         if outputs_student.logits.size() != avg_teacher_logits.size():
-             # Fallback: slicing if teacher vocab is slightly larger/smaller or seqlen mismatch
              min_vocab = min(outputs_student.logits.size(-1), avg_teacher_logits.size(-1))
              s_logits = outputs_student.logits[..., :min_vocab]
              t_logits = avg_teacher_logits[..., :min_vocab]
@@ -231,14 +238,16 @@ training_args = DistillationTrainingArguments(
     save_strategy="no",
     eval_strategy="steps",
     eval_steps=500,
-    num_train_epochs=6, 
+    num_train_epochs=EPOCHS,        # [修改] 使用论文的 10 Epochs
     report_to=[],
     gradient_accumulation_steps=1,
-    per_device_train_batch_size=BATCH_SIZE,
+    per_device_train_batch_size=BATCH_SIZE, # [修改] 使用论文的 16
     save_total_limit=None,
-    warmup_steps=200, 
+    warmup_steps=WARMUP_STEPS,      # [修改] 使用论文的 800
     lr_scheduler_type="cosine",
-    learning_rate=LR,
+    learning_rate=LR,               # [修改] 使用论文的 3e-4
+    adam_beta1=ADAM_BETAS[0],       # [修改] Adam Beta1
+    adam_beta2=ADAM_BETAS[1],       # [修改] Adam Beta2
     logging_steps=20,
     fp16=True, 
     load_best_model_at_end=False,
@@ -247,7 +256,7 @@ training_args = DistillationTrainingArguments(
     weight_decay=0.1,
     alpha=ALPHA,
     temperature=TEMPERATURE,
-    save_safetensors=False, # Disable safetensors saving
+    save_safetensors=False, 
 )
 
 trainer = DistillationTrainer(
@@ -258,7 +267,7 @@ trainer = DistillationTrainer(
     train_dataset=train_dataset,
     eval_dataset=eval_dataset,
     callbacks=[WordMilestoneCB(
-        tokenizer=tokenizer, # [核心修改 2] 传入 tokenizer
+        tokenizer=tokenizer,
         api=api, 
         repo_id=my_repo_id, 
         seq_len=SEQ_LENGTH, 
