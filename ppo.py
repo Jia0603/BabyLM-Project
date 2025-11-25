@@ -1,4 +1,3 @@
-
 import os
 # Use environment TMPDIR for all caches and outputs
 scratch = os.environ.get('TMPDIR', '/tmp')
@@ -109,7 +108,7 @@ def main(ppo_cfg, teacher_cfg):
         hf_org=ppo_cfg.get("hf_org", "llm-slice"),
         save_base_dir=ppo_cfg.get("save_base_dir", "saved_models"),
         wandb_project="ppo-rlhf",   
-        push_to_hub=True,  # Autopush flag
+        push_to_hub=False,  # 禁用自动上传到 Hugging Face
     )
 
     # Generation kwargs from config

@@ -191,9 +191,20 @@ class CustomPPOTrainer(PPOTrainer):
     #     self._push_to_hub(branch, f"Checkpoint at {tag} words")
 
     def _push_final(self):
+        # 总是先保存到本地
+        local_save_path = os.path.join(self.base_out_dir, "final_model")
+        logger.info(f"Saving final model locally to: {local_save_path}")
+        os.makedirs(local_save_path, exist_ok=True)
+        self.model.save_pretrained(local_save_path)
+        self.tokenizer.save_pretrained(local_save_path)
+        logger.info(f"✓ Model saved to {local_save_path}")
+    
+        # 然后根据 push_to_hub 决定是否上传
         if not self.push_to_hub:
-            logger.info("push_to_hub=False → skipping final upload.")
+            logger.info("push_to_hub=False → skipping upload to Hugging Face Hub.")
             return
+    
+        logger.info("push_to_hub=True → uploading to Hugging Face Hub...")
         self._push_to_hub("main", "Final model push")
 
 

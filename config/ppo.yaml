@@ -9,7 +9,7 @@ hf_org : Shuying-Blaise # Save the model in my account
 # Trainer Settings
 num_epochs: 1
 batch_size: 128 # 360, 64
-token_limit: 500000 # 1000000
+token_limit: 1000000 # 1000000
 # checkpoint_interval: 200000
 save_base_dir: models/
 
