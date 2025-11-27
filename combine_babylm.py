@@ -4,7 +4,7 @@ Merge all BabyLM training files from train_10M directory and split into training
 from pathlib import Path
 import random
 
-def combine_babylm_files(input_dir="../train_10M", 
+def combine_babylm_files(input_dir="./train_10M", 
                         train_output="corpus_split/train_babylm.txt",
                         val_output="corpus_split/val_babylm.txt",
                         val_ratio=0.05,

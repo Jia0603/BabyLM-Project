@@ -2,7 +2,7 @@ model_name: LMSeed/GPT2-small-distilled-100M
 revision_name: null
 learning_rate: 1e-6
 log_with: wandb
-hf_org : Shuying-Blaise # Save the model in my account
+hf_org : LMSeed # Save the model in my account
 
 
 

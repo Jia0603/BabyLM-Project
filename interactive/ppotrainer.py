@@ -26,19 +26,19 @@ def fmt_tokens(n: int) -> str:
     return str(n)
 
 
-# def schedule_next_ckpt(words_so_far: int) -> int:
-#     """Compute the next checkpoint threshold based on words processed."""
-#     if words_so_far < 1_000_000:
-#         step = 100_000
-#     elif words_so_far < 2_000_000:
-#         step = 200_000
-#     elif words_so_far < 10_000_000:
-#         step = 1_000_000
-#     elif words_so_far < 100_000_000:
-#         step = 10_000_000
-#     else:
-#         step = 100_000_000
-#     return ((words_so_far // step) + 1) * step
+def schedule_next_ckpt(words_so_far: int) -> int:
+    """Compute the next checkpoint threshold based on words processed."""
+    if words_so_far < 1_000_000:
+        step = 100_000
+    elif words_so_far < 2_000_000:
+        step = 200_000
+    elif words_so_far < 10_000_000:
+        step = 1_000_000
+    elif words_so_far < 100_000_000:
+        step = 10_000_000
+    else:
+        step = 100_000_000
+    return ((words_so_far // step) + 1) * step
 
 
 class CustomPPOTrainer(PPOTrainer):
@@ -250,7 +250,7 @@ class CustomPPOTrainer(PPOTrainer):
 
         global_step = 0
         total_prompt_words = 0
-        # next_ckpt = schedule_next_ckpt(0)
+        next_ckpt = schedule_next_ckpt(0)
 
         for epoch in range(num_epochs):
             prompt_used = 0
@@ -318,11 +318,11 @@ class CustomPPOTrainer(PPOTrainer):
                         (q, r, rew) for q, r, rew in zip(batch["query"], dec_resp, raw_outputs)
                     )
 
-                    # if total_prompt_words >= next_ckpt:
-                    #     branch = f"chck_{fmt_tokens(next_ckpt)}"
-                    #     self._push_to_hub(branch, f"Checkpoint at {fmt_tokens(next_ckpt)} words")
-                    #     self._dump_logs()
-                    #     next_ckpt = schedule_next_ckpt(total_prompt_words)
+                    if total_prompt_words >= next_ckpt:
+                        branch = f"chck_{fmt_tokens(next_ckpt)}"
+                        self._push_to_hub(branch, f"Checkpoint at {fmt_tokens(next_ckpt)} words")
+                        self._dump_logs()
+                        next_ckpt = schedule_next_ckpt(total_prompt_words)
                     logging_ready = time.time()
 
                     logger.info(
