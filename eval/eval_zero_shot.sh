@@ -19,4 +19,4 @@ python -m evaluation_pipeline.sentence_zero_shot.run --model_path_or_name $MODEL
 python -m evaluation_pipeline.sentence_zero_shot.run --model_path_or_name $MODEL_PATH --backend $BACKEND --task wug_adj --data_path "${EVAL_DIR}/wug_adj_nominalization" --save_predictions
 python -m evaluation_pipeline.sentence_zero_shot.run --model_path_or_name $MODEL_PATH --backend $BACKEND --task wug_past --data_path "${EVAL_DIR}/wug_past_tense" --save_predictions
 python -m evaluation_pipeline.sentence_zero_shot.run --model_path_or_name $MODEL_PATH --backend $BACKEND --task comps --data_path "${EVAL_DIR}/comps" --save_predictions
-# python -m evaluation_pipeline.reading.run --model_path_or_name $MODEL_PATH --backend $BACKEND_READ --data_path "${EVAL_DIR}/reading/reading_data.csv"
+python -m evaluation_pipeline.reading.run --model_path_or_name $MODEL_PATH --backend $BACKEND_READ --data_path "${EVAL_DIR}/reading/reading_data.csv"
