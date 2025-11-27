@@ -1,4 +1,4 @@
-model_name: Zhe-Zhang/GPT2-Small-Distilled
+model_name: LMSeed/GPT2-small-distilled-100M
 revision_name: null
 learning_rate: 1e-6
 log_with: wandb
@@ -10,7 +10,7 @@ hf_org : Shuying-Blaise # Save the model in my account
 num_epochs: 1
 batch_size: 128 # 360, 64
 token_limit: 1000000 # 1000000
-# checkpoint_interval: 200000
+checkpoint_interval: 200000
 save_base_dir: models/
 
 
