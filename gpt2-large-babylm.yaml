@@ -1,13 +1,13 @@
 data:
-  tokenizer_path: "./models/tokenizer-clean.json"
-  train_path: "./corpus_split/train_babylm.txt"  # BabyLM merged training set
-  eval_path: "./corpus_split/val_babylm.txt"    # BabyLM validation set
-  seq_length: 128
+  tokenizer_path: "gpt2-large"
+  train_path: "./corpus_split_100M/train_babylm.txt"  # BabyLM merged training set
+  eval_path: "./corpus_split_100M/val_babylm.txt"    # BabyLM validation set
+  seq_length: 512
   eval_samples: 8192
 
 model:
   type: "GPT2"
-  name: "GPT2-Large-BabyLM"
+  name: "GPT2-Large-BabyLM-100M"
   hidden_size: 1280  # GPT-2 Large hidden size
   n_layer: 36        # GPT-2 Large number of layers
   n_head: 20         # GPT-2 Large number of attention heads
@@ -24,7 +24,7 @@ model:
 training:
   lr: 2.5e-4
   batch_size: 128
-  num_epochs: 4
+  num_epochs: 10
   gradient_accumulation_steps: 16
   warmup_steps: 300
   fp16: True

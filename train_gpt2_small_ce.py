@@ -12,19 +12,19 @@ from custom_dataset import CustomDataset
 
 LR = 2.5e-4
 BATCH_SIZE = 32
-SEQ_LENGTH = 128
+SEQ_LENGTH = 512
 EVAL_SAMPLES = 8192
 
 PATH = Path("./")
 
 # tokenizer dir (same as teacher tokenizer, for consistency)
-TOKENIZER_DIR = PATH / "models/GPT2-Large-BabyLM"
+TOKENIZER_DIR = PATH / "models/GPT2-Large-BabyLM-100M"
 
 MODEL_NAME = "GPT2-Small-BabyLM-CE"
 MODEL_OUTPUT = PATH / "models" / MODEL_NAME
 
-BABYLM_TRAIN_PATH = "corpus_split/train_babylm.txt"
-BABYLM_VAL_PATH = "corpus_split/val_babylm.txt"
+BABYLM_TRAIN_PATH = "corpus_split_100M/train_babylm.txt"
+BABYLM_VAL_PATH = "corpus_split_100M/val_babylm.txt"
 
 print(f"Loading GPT-2 tokenizer from: {TOKENIZER_DIR}")
 tokenizer = GPT2TokenizerFast.from_pretrained(TOKENIZER_DIR)
@@ -73,11 +73,11 @@ training_args = TrainingArguments(
     overwrite_output_dir=True,
     save_strategy="epoch",
     eval_strategy="epoch",  # keep same style as your distillation script
-    num_train_epochs=6,
+    num_train_epochs=10,
     report_to=[],
-    gradient_accumulation_steps=1,
+    gradient_accumulation_steps=4,
     per_device_train_batch_size=BATCH_SIZE,
-    save_total_limit=1,
+    save_total_limit=None,
     warmup_steps=200,
     lr_scheduler_type="cosine",
     learning_rate=LR,

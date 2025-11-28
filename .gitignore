@@ -13,7 +13,9 @@ wandb/
 cache/
 train_10M/
 corpus_split/
+corpus_split_100M/
 self_tokenizer_models/
+train_100M/
 
 # Large ML files
 *.pt
