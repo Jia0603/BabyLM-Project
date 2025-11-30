@@ -29,10 +29,11 @@ ALPHA = 0.5
 
 # Teacher model: Fine-tuned GPT-2 Large
 # teacher_dir = PATH / 'models/GPT2-Large-BabyLM'
-teacher_dir = "Zhe-Zhang/GPT2-Large-BabyLM"
+# teacher_dir = "Zhe-Zhang/GPT2-Large-BabyLM"
+teacher_dir = "openai-community/gpt2-large" # Pretrained GPT-2 Large as teacher
 
 # Student model: GPT-2 Small (random initialization)
-MODEL_NAME = f'GPT2-Small-Distilled-100M'
+MODEL_NAME = f'GPT2-Small-Distilled-100M-dft'
 MODEL_OUTPUT = Path('../models') / MODEL_NAME
 EVAL_SAMPLES = 8192
 
