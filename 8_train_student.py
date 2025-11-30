@@ -30,10 +30,11 @@ ALPHA = 0.5
 # Teacher model: Fine-tuned GPT-2 Large
 # teacher_dir = PATH / 'models/GPT2-Large-BabyLM'
 # teacher_dir = "Zhe-Zhang/GPT2-Large-BabyLM"
-teacher_dir = "openai-community/gpt2-large" # Pretrained GPT-2 Large as teacher
+# teacher_dir = "openai-community/gpt2-large" # Pretrained GPT-2 Large as teacher
+teacher_dir = "./models/GPT2-Large-BabyLM-100M"
 
 # Student model: GPT-2 Small (random initialization)
-MODEL_NAME = f'GPT2-Small-Distilled-100M-dft'
+MODEL_NAME = f'GPT2-Small-Distilled-100M-9Epochs'
 MODEL_OUTPUT = Path('../models') / MODEL_NAME
 EVAL_SAMPLES = 8192
 
@@ -51,8 +52,8 @@ if tokenizer.pad_token is None:
 # tokenizer.model_max_length = SEQ_LENGTH
 
 # Load datasets - Use BabyLM data
-BABYLM_TRAIN_PATH = "corpus_split/train_babylm.txt"  # BabyLM training set
-BABYLM_VAL_PATH = "corpus_split/val_babylm.txt"      # BabyLM validation set
+BABYLM_TRAIN_PATH = "corpus_split_100M/train_babylm.txt"  # BabyLM training set
+BABYLM_VAL_PATH = "corpus_split_100M/val_babylm.txt"      # BabyLM validation set
 
 train_dataset = CustomDataset(
     data_path=BABYLM_TRAIN_PATH,
@@ -199,9 +200,9 @@ training_args = DistillationTrainingArguments(
     overwrite_output_dir=True,
     save_strategy="epoch", # We use custom callback for saving
     eval_strategy="epoch",  # Fixed: evaluation_strategy has been changed to eval_strategy
-    num_train_epochs=10,
+    num_train_epochs=9,
     report_to=[],
-    gradient_accumulation_steps=1,
+    gradient_accumulation_steps=8,
     per_device_train_batch_size=BATCH_SIZE,
     save_total_limit=None, # Keep all checkpoints
     warmup_steps=200, 
@@ -225,14 +226,12 @@ trainer = DistillationTrainer(
         data_collator=data_collator,
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
-        callbacks=[WordMilestoneCB(SEQ_LENGTH, 1, BATCH_SIZE)]
+        callbacks=[WordMilestoneCB(SEQ_LENGTH, training_args.gradient_accumulation_steps, BATCH_SIZE)]
     )
 
 trainer.train()
 
 trainer.save_model(MODEL_OUTPUT)
 tokenizer.save_pretrained(MODEL_OUTPUT)
-
-
 
 
