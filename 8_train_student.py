@@ -5,6 +5,7 @@ from transformers import (
 )
 
 from pathlib import Path
+import argparse # 导入 argparse
 
 import torch
 import torch.nn as nn
@@ -13,6 +14,20 @@ from torch.utils.data import Subset
 from random import sample
 
 from custom_dataset import CustomDataset
+
+# ----------------------------------------------
+# 1. 解析命令行参数
+# ----------------------------------------------
+parser = argparse.ArgumentParser(description="Knowledge Distillation Training Script")
+parser.add_argument(
+    "--resume_path", 
+    type=str, 
+    default=None, 
+    help="Path to a checkpoint folder (e.g., '../models/GPT2-Small-Distilled-100M-9Epochs/checkpoint-4960') to resume training from."
+)
+args = parser.parse_args()
+RESUME_PATH_INPUT = args.resume_path
+
 
 torch.cuda.empty_cache()
 torch.cuda.synchronize()
@@ -25,12 +40,7 @@ TEMPERATURE = 2.0
 ALPHA = 0.5
 #############
 
-# PATH = Path("./")
-
 # Teacher model: Fine-tuned GPT-2 Large
-# teacher_dir = PATH / 'models/GPT2-Large-BabyLM'
-# teacher_dir = "Zhe-Zhang/GPT2-Large-BabyLM"
-# teacher_dir = "openai-community/gpt2-large" # Pretrained GPT-2 Large as teacher
 teacher_dir = "./models/GPT2-Large-BabyLM-100M"
 
 # Student model: GPT-2 Small (random initialization)
@@ -39,49 +49,45 @@ MODEL_OUTPUT = Path('../models') / MODEL_NAME
 EVAL_SAMPLES = 8192
 
 
-# Load tokenizer - Use GPT-2 original tokenizer (consistent with teacher model)
-# Teacher model was trained with GPT-2 original tokenizer, so use the same tokenizer here
+# Load tokenizer 
 print(f"Loading GPT-2 tokenizer from teacher model: {teacher_dir}")
 tokenizer = GPT2TokenizerFast.from_pretrained(
     teacher_dir,
     model_max_length=SEQ_LENGTH
     )
-# GPT-2 doesn't have pad_token, use eos_token as pad_token
 if tokenizer.pad_token is None:
     tokenizer.pad_token = tokenizer.eos_token
-# tokenizer.model_max_length = SEQ_LENGTH
 
-# Load datasets - Use BabyLM data
-BABYLM_TRAIN_PATH = "corpus_split_100M/train_babylm.txt"  # BabyLM training set
-BABYLM_VAL_PATH = "corpus_split_100M/val_babylm.txt"      # BabyLM validation set
+# Load datasets
+BABYLM_TRAIN_PATH = "corpus_split_100M/train_babylm.txt"  
+BABYLM_VAL_PATH = "corpus_split_100M/val_babylm.txt"      
 
 train_dataset = CustomDataset(
     data_path=BABYLM_TRAIN_PATH,
     seq_length=SEQ_LENGTH,
     tokenizer=tokenizer,
-    random_chunk=True  # Using random chunks for training
+    random_chunk=True 
 )
 
 val_dataset = CustomDataset(
     data_path=BABYLM_VAL_PATH,
     seq_length=SEQ_LENGTH,
     tokenizer=tokenizer,
-    random_chunk=False  # No random chunks for validation
+    random_chunk=False
 )
 
-# Sample evaluation subset if needed
+# Sample evaluation subset
 eval_indices = sample(range(len(val_dataset)), min(EVAL_SAMPLES, len(val_dataset)))
 eval_dataset = Subset(val_dataset, eval_indices)
 
 # Student model: GPT-2 Small architecture, random initialization
-
 student_config = GPT2Config(
     vocab_size=tokenizer.vocab_size,
     n_positions=2*SEQ_LENGTH,
     n_embd=768,      # GPT-2 Small hidden size
     n_layer=12,      # GPT-2 Small number of layers
     n_head=12,       # GPT-2 Small number of attention heads
-    pad_token_id=tokenizer.pad_token_id,  # Use tokenizer's pad_token_id (usually eos_token_id)
+    pad_token_id=tokenizer.pad_token_id, 
 )
 
 student = GPT2LMHeadModel(student_config)
@@ -97,13 +103,7 @@ data_collator = DataCollatorForLanguageModeling(
     tokenizer=tokenizer, mlm=False,
 )
 
-
-
-#  Distillation Trainer
-#  We modified the Trainer from this repo https://github.com/philschmid/knowledge-distillation-transformers-pytorch-sagemaker
-# to work with an ensemble of teachers
-
-
+# Distillation Trainer Arguments
 class DistillationTrainingArguments(TrainingArguments):
     def __init__(self, *args, alpha=0.5, temperature=2.0, **kwargs):
         super().__init__(*args, **kwargs)
@@ -113,6 +113,7 @@ class DistillationTrainingArguments(TrainingArguments):
 
 from transformers import TrainerCallback
 
+# Word Milestone Callback
 class WordMilestoneCB(TrainerCallback):
     def __init__(self, seq_len, grad_acc, bsz, tok_per_word=1.33):
         self.toks = 0
@@ -122,40 +123,48 @@ class WordMilestoneCB(TrainerCallback):
         self.tok_per_word = tok_per_word
         
         # Milestones in millions of words
-        # 1M to 10M (step 1M), then 20M to 100M (step 10M), then 200M to 1000M (step 100M)
         ms = list(range(1, 11)) + [i * 10 for i in range(2, 11)] + [i * 100 for i in range(2, 11)]
-        self.milestones_m = ms  # Store milestone values in millions
+        self.milestones_m = ms
         self.milestone_toks = [int(m * 1e6 * self.tok_per_word) for m in ms]
         self.next_milestone_idx = 0
 
     def on_step_end(self, args, state, control, **kwargs):
+        # Check if this is the first step of a resumed run, 
+        # in which case state.global_step should be used to initialize self.toks
+        if self.toks == 0 and state.global_step > 0:
+            # Calculate toks based on effective batch size (per device) and current step
+            effective_bs_per_device = self.bsz * self.seq_len * self.grad_acc
+            self.toks = state.global_step * effective_bs_per_device
+            
+            # Adjust next milestone index based on current tokens
+            while self.next_milestone_idx < len(self.milestone_toks) and self.toks >= self.milestone_toks[self.next_milestone_idx]:
+                 self.next_milestone_idx += 1
+
+
         # Calculate tokens processed in this step
-        # Note: This assumes full batches. For more precision, one could sum actual input lengths.
         step_toks = self.bsz * self.seq_len * self.grad_acc
         self.toks += step_toks
         
         if self.next_milestone_idx < len(self.milestone_toks):
             next_milestone = self.milestone_toks[self.next_milestone_idx]
             if self.toks >= next_milestone:
-                # Get trainer and model from kwargs
+                
                 model = kwargs.get('model')
                 tokenizer = kwargs.get('tokenizer')
                 
-                # Create custom checkpoint name
                 milestone_m = self.milestones_m[self.next_milestone_idx]
                 checkpoint_name = f"checkpoint_{milestone_m}M"
                 checkpoint_path = Path(args.output_dir) / checkpoint_name
                 
-                # Save model manually
                 print(f"Milestone reached: {milestone_m}M words ({self.toks} tokens). Saving checkpoint to {checkpoint_name}...")
                 model.save_pretrained(checkpoint_path)
                 if tokenizer is not None:
                     tokenizer.save_pretrained(checkpoint_path)
                 
                 self.next_milestone_idx += 1
-                # Don't set control.should_save since we're saving manually
 
 
+# Distillation Trainer
 class DistillationTrainer(Trainer):
     def __init__(self, *args, teacher_models=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -198,21 +207,21 @@ class DistillationTrainer(Trainer):
 training_args = DistillationTrainingArguments(
     output_dir=MODEL_OUTPUT,
     overwrite_output_dir=True,
-    save_strategy="epoch", # We use custom callback for saving
-    eval_strategy="epoch",  # Fixed: evaluation_strategy has been changed to eval_strategy
+    save_strategy="epoch", # Trainer epoch saving is fine as a backup
+    eval_strategy="epoch",
     num_train_epochs=9,
     report_to=[],
     gradient_accumulation_steps=8,
     per_device_train_batch_size=BATCH_SIZE,
-    save_total_limit=None, # Keep all checkpoints
+    save_total_limit=None,
     warmup_steps=200, 
     lr_scheduler_type="cosine",
     learning_rate=LR,
     logging_steps=20,
     fp16=True,
-    load_best_model_at_end=False, # Cannot load best model if we don't save by metric
+    load_best_model_at_end=False,
     metric_for_best_model="eval_loss",
-    greater_is_better=False,  # eval_loss should be minimized
+    greater_is_better=False,
     weight_decay=0.1,
     alpha=ALPHA,
     temperature=TEMPERATURE,
@@ -229,9 +238,25 @@ trainer = DistillationTrainer(
         callbacks=[WordMilestoneCB(SEQ_LENGTH, training_args.gradient_accumulation_steps, BATCH_SIZE)]
     )
 
-trainer.train()
+# ----------------------------------------------
+# 2. 修改 trainer.train() 调用以支持恢复
+# ----------------------------------------------
+resume_checkpoint = None
+if RESUME_PATH_INPUT:
+    # 构造完整的 Checkpoint 路径
+    if Path(RESUME_PATH_INPUT).is_dir():
+        # 如果用户传入完整的路径，直接使用
+        resume_checkpoint = RESUME_PATH_INPUT
+    elif (MODEL_OUTPUT / RESUME_PATH_INPUT).is_dir():
+        # 如果用户只传入文件夹名（如 'checkpoint-4960'），则构造完整路径
+        resume_checkpoint = str(MODEL_OUTPUT / RESUME_PATH_INPUT)
+    
+    if resume_checkpoint:
+        print(f"✅ Found Checkpoint. Resuming training from: {resume_checkpoint}")
+    else:
+        print(f"⚠️ Checkpoint folder not found at {RESUME_PATH_INPUT}. Starting training from scratch.")
+
+trainer.train(resume_from_checkpoint=resume_checkpoint)
 
 trainer.save_model(MODEL_OUTPUT)
 tokenizer.save_pretrained(MODEL_OUTPUT)
-
-
