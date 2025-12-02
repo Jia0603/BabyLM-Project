@@ -2,10 +2,11 @@
 
 A knowledge distillation project for training small language models on the BabyLM dataset, transferring knowledge from a fine-tuned GPT-2 Large teacher model to a randomly initialized GPT-2 Small student model.
 
-> **Project Period**: November 11-25, 2025  
+> **Project Period**: November 11 - December 2, 2025  
 > **Status**: 
-> - **Week 1 (Nov 11-18)**: Basic Distillation Pipeline & Baseline.
+> - **Week 1 (Nov 11-18)**: Basic Distillation Pipeline & Baseline (10M dataset).
 > - **Week 2 (Nov 19-25)**: MoE-P Architecture, RL (PPO) Pipeline & Evaluation.
+> - **Week 3 (Nov 26 - Dec 2)**: **Scale to 100M Dataset**, Loss Visualization & Interactive Chatbot.
 
 ## 📊 Results
 
@@ -52,6 +53,8 @@ pip install -r requirements.txt
 
 #### Step 1: Prepare Data
 
+**Option A: 10M Dataset** (Original)
+
 ```bash
 python combine_babylm.py
 ```
@@ -59,6 +62,12 @@ python combine_babylm.py
 This merges all `.train` files from `train_10M/` directory and splits into:
 - Training set: `corpus_split/train_babylm.txt` (95%)
 - Validation set: `corpus_split/val_babylm.txt` (5%)
+
+**Option B: 100M Dataset** (Current)
+
+Similarly process files from `train_100M/` directory:
+- Training set: `corpus_split_100M/train_babylm.txt` (95%)
+- Validation set: `corpus_split_100M/val_babylm.txt` (5%)
 
 #### Step 2: Fine-tune Teacher Model
 
@@ -116,6 +125,18 @@ This runs the PPO training loop using:
 - **Reward Model**: Llama-3.1-8B-Instruct (or Random for testing)
 - **Dataset**: Interactive prompts (TinyStories, WritingPrompts, etc.)
 
+#### Step 7: Visualize Training Loss
+
+```bash
+python visual.py
+```
+
+This generates loss curves from training checkpoints. Configure the model name and checkpoint directories in the script.
+
+#### Step 8: Interactive Chatbot
+
+We provide an interactive chatbot interface on **Hugging Face** for testing trained models. Visit our [LMseed repository](https://huggingface.co/LMseed) to try the chatbot and interact with our trained models.
+
 ### Evaluation Pipeline
 
 We support the official BabyLM zero-shot evaluation suite (BLiMP, EWoK, etc.).
@@ -137,20 +158,26 @@ cd eval
 
 ```
 BabyLM/
-├── train_10M/                    # BabyLM training data
+├── train_10M/                    # BabyLM training data (10M)
 │   ├── bnc_spoken.train
 │   ├── childes.train
 │   ├── gutenberg.train
 │   ├── open_subtitles.train
 │   ├── simple_wiki.train
 │   └── switchboard.train
-├── corpus_split/                  # Processed data
+├── train_100M/                   # BabyLM training data (100M)
+│   └── ...
+├── corpus_split/                  # Processed data (10M)
+│   ├── train_babylm.txt
+│   └── val_babylm.txt
+├── corpus_split_100M/             # Processed data (100M)
 │   ├── train_babylm.txt
 │   └── val_babylm.txt
 ├── models/                        # Trained models
 │   ├── GPT2-Large-BabyLM/         # Fine-tuned teacher
 │   ├── GPT2-Small-BabyLM-CE/      # Baseline student
-│   ├── GPT2-Small-Distilled/      # Distilled student
+│   ├── GPT2-Small-Distilled/      # Distilled student (10M)
+│   ├── GPT2-Small-Distilled-100M/ # Distilled student (100M)
 │   ├── GPT2-Small-Distilled-RL/   # RL-tuned student (PPO)
 │   ├── MoEP-Student-Distilled/    # MoE-P student (Initial)
 │   └── MoEP-Student-Distilled-PaperCfg/ # MoE-P student (Paper Config)
@@ -168,8 +195,11 @@ BabyLM/
 ├── train_moep_student.py          # MoE-P student distillation
 ├── modeling_moep.py               # MoE-P model definition
 ├── ppo.py                         # PPO training entry point
+├── visual.py                      # Loss curve visualization
 ├── custom_dataset.py              # PyTorch dataset class
 ├── gpt2-large-babylm.yaml        # Training configuration
+├── GPT2-Small-Distilled-100M.jpg # Loss curve (100M training)
+├── GPT2-Small-Distilled-100M-dft.jpg # Loss curve (100M distillation)
 └── README.md
 ```
 
@@ -264,7 +294,42 @@ The student model training (`8_train_student.py`) uses a data-volume based check
 - **20M - 100M words**: Checkpoint every 10M words
 - **200M - 1000M words**: Checkpoint every 100M words
 
-Checkpoints are saved in `models/GPT2-Small-Distilled/` and are **not** automatically deleted, so ensure sufficient disk space is available.
+Checkpoints are saved in `models/GPT2-Small-Distilled/` (or `models/GPT2-Small-Distilled-100M/` for 100M dataset) and are **not** automatically deleted, so ensure sufficient disk space is available.
+
+## 📊 Visualization & Analysis
+
+### Loss Curve Visualization
+
+We provide a visualization tool (`visual.py`) to plot training and validation loss curves from model checkpoints:
+
+```bash
+python visual.py
+```
+
+**Configuration**: Edit `visual.py` to specify:
+- `model_name`: Name of the model directory (e.g., `"GPT2-Small-Distilled-100M"`)
+- `model_dir`: Path to model directory (e.g., `Path("models") / Path(model_name)`)
+- `checkpoint_dirs`: List of checkpoint directories to analyze
+
+**Output**: Generates a loss curve plot saved as `{model_name}.jpg`
+
+### Training Results (100M Dataset)
+
+Below are the loss curves for our GPT2-Small student model trained on the 100M BabyLM dataset:
+
+![GPT2-Small-Distilled-100M Training Loss](file:///d:/LU%20D/course/Project%20in%20Computer%20Science/baseline/BabyLM/GPT2-Small-Distilled-100M.jpg)
+
+![GPT2-Small-Distilled-100M-dft Training Loss](file:///d:/LU%20D/course/Project%20in%20Computer%20Science/baseline/BabyLM/GPT2-Small-Distilled-100M-dft.jpg)
+
+### Interactive Chatbot
+
+We provide an **interactive chatbot interface** on Hugging Face for testing our trained models. The chatbot allows you to:
+- Chat with distilled student models
+- Test MoE-P architecture models
+- Experiment with RL-tuned models
+- Adjust generation parameters (temperature, top-k, top-p)
+
+**Try it now**: Visit our [LMseed Hugging Face Space](https://huggingface.co/LMseed) to interact with our trained models!
 
 ## 📈 Training Details
 
