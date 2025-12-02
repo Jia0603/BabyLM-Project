@@ -436,6 +436,13 @@ This is our initial implementation completed during Week 1 (November 11-18, 2024
 - **Evaluation Pipeline**: Integrated official BabyLM evaluation suite with support for custom MoE-P models.
 - **Paper Alignment**: Aligned MoE-P hyperparameters with the original paper.
 
+### Week 3 (Nov 26 - Dec 2, 2024)
+
+- **100M Dataset**: Scaled training to 100M BabyLM dataset for improved model performance.
+- **Loss Visualization**: Implemented `visual.py` to generate training and validation loss curves from checkpoints.
+- **Interactive Chatbot**: Deployed interactive chatbot interface on Hugging Face/LMseed for model testing.
+- **Training Results**: Generated and documented loss curves for 100M dataset training.
+
 ## 🔗 References
 
 - [BabyLM Challenge](https://babylm.github.io/)
