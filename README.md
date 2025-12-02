@@ -317,9 +317,9 @@ python visual.py
 
 Below are the loss curves for our GPT2-Small student model trained on the 100M BabyLM dataset:
 
-![GPT2-Small-Distilled-100M Training Loss](file:///d:/LU%20D/course/Project%20in%20Computer%20Science/baseline/BabyLM/GPT2-Small-Distilled-100M.jpg)
+![GPT2-Small-Distilled-100M Training Loss](GPT2-Small-Distilled-100M.jpg)
 
-![GPT2-Small-Distilled-100M-dft Training Loss](file:///d:/LU%20D/course/Project%20in%20Computer%20Science/baseline/BabyLM/GPT2-Small-Distilled-100M-dft.jpg)
+![GPT2-Small-Distilled-100M-dft Training Loss](GPT2-Small-Distilled-100M-dft.jpg)
 
 ### Interactive Chatbot
 
