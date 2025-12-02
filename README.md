@@ -412,7 +412,7 @@ source ~/BabyLM/babylm/bin/activate
 
 ## 📅 Implementation Status
 
-### Week 1 (Nov 11-18, 2024)
+### Week 1 (Nov 11-18, 2025)
 
 This is our initial implementation completed during Week 1 (November 11-18, 2024). The current version includes:
 
@@ -428,7 +428,7 @@ This is our initial implementation completed during Week 1 (November 11-18, 2024
 - Configuration parameters may be adjusted in future iterations
 - Evaluation metrics and methodology may be refined
 
-### Week 2 (Nov 19-25, 2024)
+### Week 2 (Nov 19-25, 2025)
 
 - **MoE-P Architecture**: Implemented `modeling_moep.py` with parallel layers and router.
 - **MoE-P Distillation**: Created `train_moep_student.py` to distill knowledge into MoE-P.
@@ -436,7 +436,7 @@ This is our initial implementation completed during Week 1 (November 11-18, 2024
 - **Evaluation Pipeline**: Integrated official BabyLM evaluation suite with support for custom MoE-P models.
 - **Paper Alignment**: Aligned MoE-P hyperparameters with the original paper.
 
-### Week 3 (Nov 26 - Dec 2, 2024)
+### Week 3 (Nov 26 - Dec 2, 2025)
 
 - **100M Dataset**: Scaled training to 100M BabyLM dataset for improved model performance.
 - **Loss Visualization**: Implemented `visual.py` to generate training and validation loss curves from checkpoints.
