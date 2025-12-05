@@ -14,11 +14,11 @@ model:
   use_pretrained: true  # Use pre-trained weights
   pretrained_model: "gpt2-large"  # Pre-trained model name
   # LoRA/QLoRA configuration (optional, for reducing GPU memory usage)
-  use_lora: false     # Use LoRA (parameter-efficient fine-tuning)
+  use_lora: true     # Use LoRA (parameter-efficient fine-tuning)
   use_qlora: false    # Use QLoRA (4-bit quantization + LoRA, more memory efficient)
-  lora_r: 16          # LoRA rank
-  lora_alpha: 32      # LoRA alpha
-  lora_dropout: 0.05  # LoRA dropout
+  lora_r: 32          # LoRA rank
+  lora_alpha: 64      # LoRA alpha
+  lora_dropout: 0.1  # LoRA dropout
   lora_target_modules: ["c_attn", "c_proj", "c_fc"]  # GPT-2 module names
 
 training:
