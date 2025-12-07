@@ -94,6 +94,7 @@ def main():
     parser.add_argument("--model_name", type=str, default=None, help="Model name override")
     parser.add_argument("--use_lora", action="store_true", help="Enable LoRA training")
     parser.add_argument("--use_qlora", action="store_true", help="Enable QLoRA training")
+    parser.add_argument("--resume_path", type=str, default=None, help="Path to checkpoint folder to resume training from")
     args = parser.parse_args()
 
     with open(args.config, "r", encoding="utf-8") as f:
@@ -195,7 +196,23 @@ def main():
         eval_dataset=eval_dataset,
     )
 
-    trainer.train()
+    # Handle checkpoint resumption
+    resume_checkpoint = None
+    if args.resume_path:
+        # Check if the path is a complete path or relative to output_dir
+        if Path(args.resume_path).is_dir():
+            # User provided a complete path
+            resume_checkpoint = args.resume_path
+        elif (output_dir / args.resume_path).is_dir():
+            # User provided a folder name (e.g., 'checkpoint-1000')
+            resume_checkpoint = str(output_dir / args.resume_path)
+        
+        if resume_checkpoint:
+            print(f"✅ Found checkpoint. Resuming training from: {resume_checkpoint}")
+        else:
+            print(f"⚠️ Checkpoint folder not found at {args.resume_path}. Starting training from scratch.")
+
+    trainer.train(resume_from_checkpoint=resume_checkpoint)
 
     if config['model'].get('use_lora', False) or config['model'].get('use_qlora', False):
         model.save_pretrained(output_dir)

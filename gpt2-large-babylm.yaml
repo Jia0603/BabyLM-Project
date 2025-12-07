@@ -7,7 +7,7 @@ data:
 
 model:
   type: "GPT2"
-  name: "GPT2-Large-BabyLM-100M"
+  name: "GPT2-Large-BabyLM-100M-LoRA"
   hidden_size: 1280  # GPT-2 Large hidden size
   n_layer: 36        # GPT-2 Large number of layers
   n_head: 20         # GPT-2 Large number of attention heads
