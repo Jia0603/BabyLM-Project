@@ -44,7 +44,7 @@ ALPHA = 0.5
 teacher_dir = "gpt2-large" # Pretrained GPT-2 Large
 
 # Student model: GPT-2 Small (random initialization)
-MODEL_NAME = f'GPT2-Pretrained-Small-Distilled-100M-9Epochs'
+MODEL_NAME = f'GPT2-Pretrained-Small-Distilled-100M-9Epochs-2'
 MODEL_OUTPUT = Path('../models') / MODEL_NAME
 EVAL_SAMPLES = 8192
 

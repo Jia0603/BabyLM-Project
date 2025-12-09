@@ -89,6 +89,24 @@ python 7_train_teachers.py --config gpt2-large-babylm.yaml --use_lora
 python 7_train_teachers.py --config gpt2-large-babylm.yaml --use_qlora
 ```
 
+#### Step 2.5: Merge LoRA Adapter (Optional)
+
+If you trained with LoRA/QLoRA, the output is only an **adapter** (lightweight, ~94MB). For evaluation or distillation, you may want to merge it with the base model to create a full model:
+
+```bash
+# Merge LoRA adapter with base model
+python merge_lora.py \
+  --lora_path ./models/GPT2-Large-BabyLM-100M-LoRA \
+  --output_path ./models/GPT2-Large-BabyLM-100M-Merged \
+  --base_model gpt2-large
+```
+
+**Usage after merging**:
+- ✅ **Evaluation**: `./eval_zero_shot.sh ../models/GPT2-Large-BabyLM-100M-Merged causal`
+- ✅ **Distillation**: Use the merged model path as teacher in `8_train_student.py`
+- ✅ **Inference**: Direct loading without adapter dependencies
+
+**Note**: The merged model is a full GPT2-Large model (~3GB), containing both the base weights and LoRA updates.
 
 #### Step 3: Train Baseline Model (for comparison)
 

@@ -12,6 +12,7 @@ from pathlib import Path
 import yaml
 import argparse
 import torch
+import torch.nn as nn
 
 from custom_dataset import CustomDataset
 
@@ -31,7 +32,7 @@ def build_model(config, tokenizer):
     if use_pretrained:
         print(f"Loading pretrained GPT-2 model: {pretrained_model}")
 
-        # QLoRA path: 4-bit quantization + LoRA adapter
+        # QLoRA path
         if use_qlora:
             print("Using QLoRA (4-bit quantization + LoRA)")
             try:
@@ -55,11 +56,10 @@ def build_model(config, tokenizer):
         else:
             model = GPT2LMHeadModel.from_pretrained(pretrained_model)
 
-        # Using GPT-2 original tokenizer, vocab_size fully matches, no adjustment needed
         model.config.pad_token_id = tokenizer.pad_token_id
 
         if use_lora or use_qlora:
-            print("Applying LoRA adapter...")
+            print("Applying LoRA adapter (Unsloth Style)...")
             lora_config = LoraConfig(
                 r=config['model'].get('lora_r', 16),
                 lora_alpha=config['model'].get('lora_alpha', 32),
@@ -67,8 +67,12 @@ def build_model(config, tokenizer):
                 lora_dropout=config['model'].get('lora_dropout', 0.05),
                 bias="none",
                 task_type=TaskType.CAUSAL_LM,
+                # 【修改点 1】在这里传入 modules_to_save，PEFT 会自动把它们解冻并变为可训练
+                modules_to_save=config['model'].get('modules_to_save', None) 
             )
             model = get_peft_model(model, lora_config)
+            
+            # 打印可训练参数，你会发现参数量变大了（因为加了 wte），这是正常的
             model.print_trainable_parameters()
         else:
             print("Using standard full fine-tuning (no LoRA).")
@@ -90,6 +94,7 @@ def build_model(config, tokenizer):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, default="./gpt-705M.yaml", help="Configuration file path")
+    # ... (args definitions same as before) ...
     parser.add_argument("--lr", type=float, default=None, help="Learning rate override")
     parser.add_argument("--model_name", type=str, default=None, help="Model name override")
     parser.add_argument("--use_lora", action="store_true", help="Enable LoRA training")
@@ -104,8 +109,6 @@ def main():
         config['training']['lr'] = args.lr
     if args.model_name is not None:
         config['model']['name'] = args.model_name
-    
-    # CLI overrides for LoRA/QLoRA
     if args.use_lora:
         config['model']['use_lora'] = True
     if args.use_qlora:
@@ -113,17 +116,15 @@ def main():
 
     seq_length = config['data']['seq_length']
 
-    # Use GPT-2's original tokenizer (fully compatible with pre-trained models)
+    # Use GPT-2's original tokenizer
     use_pretrained = config['model'].get('use_pretrained', False)
     pretrained_model = config['model'].get('pretrained_model', 'gpt2-large')
 
     if use_pretrained:
         print(f"Loading GPT-2 tokenizer from: {pretrained_model}")
         tokenizer = GPT2TokenizerFast.from_pretrained(pretrained_model)
-        # GPT-2 doesn't have pad_token, use eos_token as pad_token
         tokenizer.pad_token = tokenizer.eos_token
     else:
-        # If not using pre-trained model, use custom tokenizer
         tokenizer_path = config['data']['tokenizer_path']
         tokenizer = GPT2TokenizerFast(tokenizer_file=str(tokenizer_path))
         tokenizer.bos_token = "<s>"
@@ -147,21 +148,17 @@ def main():
     requested_eval = config['data']['eval_samples']
     available_eval = len(full_eval_dataset)
     eval_sample_size = min(requested_eval, available_eval)
-    if eval_sample_size < requested_eval:
-        print(
-            f"Warning: requested {requested_eval} eval samples but only {available_eval} available. "
-            f"Using {eval_sample_size} instead."
-        )
     eval_indices = sample(range(available_eval), eval_sample_size)
     eval_dataset = Subset(full_eval_dataset, eval_indices)
 
     tokenizer.model_max_length = seq_length
-
     data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
 
     model = build_model(config, tokenizer)
-    print(f"Trainable parameters: {model.num_parameters()} (total)")
-
+    
+    # 显式更新 config 这是一个好习惯
+    model.config.pad_token_id = tokenizer.pad_token_id
+    
     output_dir = Path(config['logging']['output_dir']) / config['model']['name']
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -188,23 +185,59 @@ def main():
         torch_compile=config['training'].get('torch_compile', False),
     )
 
+    # === 【修改点 2】创建支持差异化学习率的优化器 ===
+    optimizer = None
+    if config['model'].get('use_lora', False):
+        embedding_lr = float(config['training'].get('embedding_lr', 1e-5)) # 默认给个小值以防 yaml 没写
+        base_lr = float(config['training']['lr'])
+        weight_decay = 0.01 # 默认 weight decay
+
+        print(f"Applying differential Learning Rates: Base={base_lr}, Embeddings={embedding_lr}")
+
+        # 区分参数组
+        # 1. Embeddings (wte, lm_head): 使用极小的 embedding_lr
+        # 2. 其他 (LoRA layers): 使用正常的 base_lr
+        
+        # 过滤掉不需要梯度的参数
+        trainable_params = [p for n, p in model.named_parameters() if p.requires_grad]
+        
+        # 定义分组
+        embedding_params = [p for n, p in model.named_parameters() if ("wte" in n or "lm_head" in n) and p.requires_grad]
+        lora_params = [p for n, p in model.named_parameters() if ("wte" not in n and "lm_head" not in n) and p.requires_grad]
+
+        optimizer_grouped_parameters = [
+            {
+                "params": embedding_params,
+                "lr": embedding_lr,
+                "weight_decay": weight_decay,
+            },
+            {
+                "params": lora_params,
+                "lr": base_lr,
+                "weight_decay": weight_decay,
+            }
+        ]
+        
+        # 创建 AdamW 优化器
+        optimizer = torch.optim.AdamW(optimizer_grouped_parameters)
+
+    # 传入自定义的 optimizer
+    # 传入 (optimizer, None) 让 Trainer 自动帮我们创建 Scheduler
     trainer = Trainer(
         model=model,
         args=training_args,
         data_collator=data_collator,
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
+        optimizers=(optimizer, None) if optimizer is not None else (None, None)
     )
 
-    # Handle checkpoint resumption
+    # ... (Checkpoint loading logic same as before) ...
     resume_checkpoint = None
     if args.resume_path:
-        # Check if the path is a complete path or relative to output_dir
         if Path(args.resume_path).is_dir():
-            # User provided a complete path
             resume_checkpoint = args.resume_path
         elif (output_dir / args.resume_path).is_dir():
-            # User provided a folder name (e.g., 'checkpoint-1000')
             resume_checkpoint = str(output_dir / args.resume_path)
         
         if resume_checkpoint:
@@ -214,9 +247,10 @@ def main():
 
     trainer.train(resume_from_checkpoint=resume_checkpoint)
 
+    # Save model
     if config['model'].get('use_lora', False) or config['model'].get('use_qlora', False):
         model.save_pretrained(output_dir)
-        print(f"LoRA/QLoRA adapter saved to {output_dir}")
+        print(f"LoRA adapter (including embeddings) saved to {output_dir}")
     else:
         trainer.save_model(output_dir)
 

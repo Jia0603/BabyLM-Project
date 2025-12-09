@@ -1,34 +1,40 @@
-data:
-  tokenizer_path: "gpt2-large"
-  train_path: "./corpus_split_100M/train_babylm.txt"  # BabyLM merged training set
-  eval_path: "./corpus_split_100M/val_babylm.txt"    # BabyLM validation set
-  seq_length: 512
-  eval_samples: 8192
-
 model:
   type: "GPT2"
-  name: "GPT2-Large-BabyLM-100M-LoRA"
-  hidden_size: 1280  # GPT-2 Large hidden size
-  n_layer: 36        # GPT-2 Large number of layers
-  n_head: 20         # GPT-2 Large number of attention heads
-  use_pretrained: true  # Use pre-trained weights
-  pretrained_model: "gpt2-large"  # Pre-trained model name
-  # LoRA/QLoRA configuration (optional, for reducing GPU memory usage)
-  use_lora: true     # Use LoRA (parameter-efficient fine-tuning)
-  use_qlora: false    # Use QLoRA (4-bit quantization + LoRA, more memory efficient)
-  lora_r: 32          # LoRA rank
-  lora_alpha: 64      # LoRA alpha
-  lora_dropout: 0.1  # LoRA dropout
-  lora_target_modules: ["c_attn", "c_proj", "c_fc"]  # GPT-2 module names
+  name: "GPT2-Large-BabyLM-100M-Unsloth-CPT"
+  hidden_size: 1280
+  n_layer: 36
+  n_head: 20
+  use_pretrained: true
+  pretrained_model: "gpt2-large"
+  
+  # === LoRA 配置  ===
+  use_lora: true
+  use_qlora: false
+  lora_r: 8              # 建议设大一点 (64 or 128) 以容纳新知识
+  lora_alpha: 16         # 通常是 rank * 2
+  lora_dropout: 0.1
+  lora_target_modules: ["c_attn", "c_proj", "c_fc"]
+  
+  # 解冻 Embedding 层
+  # wte = Word Token Embeddings, lm_head = 输出层
+  # 在 PEFT 中，放入 modules_to_save 会自动解冻并训练这些层
+  modules_to_save: ["wte", "lm_head"] 
 
 training:
-  lr: 2.5e-4
-  batch_size: 128
-  num_epochs: 10
-  gradient_accumulation_steps: 16
+  lr: 2.5e-4              # LoRA 部分的正常学习率
+  embedding_lr: 2.5e-5    # Embedding 层学习率 (通常设为 lr 的 1/10)
+  
+  batch_size: 64          # 确保 > gradient_accumulation_steps
+  num_epochs: 10           
+  gradient_accumulation_steps: 8  # per_device_bsz = 64//8 = 8
   warmup_steps: 300
   fp16: True
 
 logging: 
   output_dir: "./models/"
-
+data:
+  tokenizer_path: "gpt2-large"
+  train_path: "./corpus_split_100M/train_babylm.txt"
+  eval_path: "./corpus_split_100M/val_babylm.txt"
+  seq_length: 512
+  eval_samples: 8192
