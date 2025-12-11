@@ -10,8 +10,8 @@ model:
   # === LoRA 配置  ===
   use_lora: true
   use_qlora: false
-  lora_r: 8              # 建议设大一点 (64 or 128) 以容纳新知识
-  lora_alpha: 16         # 通常是 rank * 2
+  lora_r: 32              # 建议设大一点 (64 or 128) 以容纳新知识
+  lora_alpha: 64         # 通常是 rank * 2
   lora_dropout: 0.1
   lora_target_modules: ["c_attn", "c_proj", "c_fc"]
   
