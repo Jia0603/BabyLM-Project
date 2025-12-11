@@ -63,7 +63,7 @@ class CustomPPOTrainer(PPOTrainer):
         wandb_project: str | None = None,
         wandb_tags: list[str] | None = None,
         watch_model: bool = False,
-        push_to_hub: bool = True,   # Cancel the auto push to hub
+        push_to_hub: bool = False,   # Cancel the auto push to hub
     ) -> None:
         super().__init__(
             config,
@@ -252,6 +252,9 @@ class CustomPPOTrainer(PPOTrainer):
         total_prompt_words = 0
         next_ckpt = schedule_next_ckpt(0)
 
+        # Specific file for text logs
+        jsonl_path = os.path.join(self.base_out_dir, "detailed_logs.jsonl")
+
         for epoch in range(num_epochs):
             prompt_used = 0
             gen_used = 0
@@ -266,6 +269,7 @@ class CustomPPOTrainer(PPOTrainer):
                         logger.info("Budget hit → epoch done")
                         break
 
+                    # Preapre queries
                     queries = batch["input_ids"] # student prompt
                     if not self._prompt_charged:
                         query_words = sum(len(q.split()) for q in batch["query"])
@@ -274,6 +278,8 @@ class CustomPPOTrainer(PPOTrainer):
                         query_words = 0
                     if prompt_used + query_words > self.word_budget:
                         break
+
+                    # generation
                     queries_ready = time.time()
                     with torch.no_grad():
                         self.model.gradient_checkpointing_disable()
@@ -286,6 +292,7 @@ class CustomPPOTrainer(PPOTrainer):
                         logger.info("Generation budget hit → epoch done")
                         break
 
+                    # reward
                     pairs = [ PromptCompletionPair(q, q + r) for q, r in zip(batch["query"], dec_resp)]
 
                     rewards_dict = self.reward_fn(pairs)
@@ -302,21 +309,31 @@ class CustomPPOTrainer(PPOTrainer):
                         logger.info("Budget hit → epoch done")
                         break
 
+                    # visulaize logging
+                    # Local JSONL
+                    with open(jsonl_path, "a", encoding="utf-8") as f:
+                        import json
+                        for i in range(len(batch["query"])):
+                            log_entry = {
+                                "step": global_step,
+                                "prompt": batch["query"][i],
+                                "response": dec_resp[i],
+                                "reward": float(teacher_rewards[i]),
+                            }
+                            f.write(json.dumps(log_entry) + "\n")
+
                     word_counting_ready = time.time()
                     stats = self.step(queries, resp_only, rewards)
                     step_ready = time.time()
                     self._log_batch( rewards, stats, teacher_rewards, length_bonuses, prompt_used + query_words + reward_words, gen_used + resp_words, global_step,)
                     global_step += 1
 
-
                     delta_prompt = query_words + reward_words
                     prompt_used += delta_prompt
                     gen_used += resp_words
                     total_prompt_words += delta_prompt
 
-                    self.generated_log.extend(
-                        (q, r, rew) for q, r, rew in zip(batch["query"], dec_resp, raw_outputs)
-                    )
+                    self.generated_log.extend((q, r, rew) for q, r, rew in zip(batch["query"], dec_resp, raw_outputs))
 
                     if total_prompt_words >= next_ckpt:
                         branch = f"chck_{fmt_tokens(next_ckpt)}"
@@ -345,7 +362,7 @@ class CustomPPOTrainer(PPOTrainer):
             logger.info("Epoch %d finished: prompt=%d, gen=%d",epoch + 1,prompt_used,gen_used,)
 
         self._push_final()
-        self._dump_logs()
+        # self._dump_logs()
 
 
 

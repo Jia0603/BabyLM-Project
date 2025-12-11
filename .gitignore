@@ -1,33 +1,3 @@
-# Python cache
-__pycache__/
-*.pyc
-
-# Virtual environment
-babylm/
-venv/
-env/
-
-# Model checkpoints and large files
-models/
-wandb/
-cache/
-train_10M/
-corpus_split/
-corpus_split_100M/
-self_tokenizer_models/
-train_100M/
-
-# Large ML files
-*.pt
-*.pth
-*.bin
-*.ckpt
-
-# Data
-*.zip
-*.tar
-*.gz
-
-# Report
-weekly report/
-original parts/
+saved_models/
+cached_datasets/
+data/
